@@ -1,13 +1,33 @@
 FROM golang:1.16.6-stretch
 LABEL maintainer="openark@github.com"
 
+ARG ci_env_repo="https://github.com/percona/orchestrator-ci-env.git"
+ARG ci_env_branch=master
+
+RUN echo "ci_env_repo: $ci_env_repo"
+RUN echo "ci_env_branch: $ci_env_branch"
+
 RUN apt-get update -q -y
 RUN apt-get install -y sudo haproxy python git jq rsync libaio1 libnuma1 mysql-client bsdmainutils less vim
 
 RUN mkdir /orchestrator
 WORKDIR /orchestrator
 
-RUN git clone https://github.com/openark/orchestrator-ci-env.git # cache
+RUN git clone -b $ci_env_branch $ci_env_repo # cache
+# For dev purposes only, just to avoid cloning over and over
+# COPY docker/orchestrator-ci-env /orchestrator/orchestrator-ci-env
+
+# Setup dbdeployer
+RUN mkdir /dbdeployer
+RUN (cd /dbdeployer && wget https://github.com/datacharmer/dbdeployer/releases/download/v1.64.0/dbdeployer-1.64.0.linux.tar.gz)
+RUN (cd /dbdeployer && tar -xf dbdeployer-1.64.0.linux.tar.gz)
+RUN (cd /dbdeployer && ln -s dbdeployer-1.64.0.linux dbdeployer)
+RUN (cd /dbdeployer && ./dbdeployer defaults update reserved-ports '0')
+RUN (cd /orchestrator/orchestrator-ci-env/bin/linux && ln -s /dbdeployer/dbdeployer)
+
+# For dev purposes only, just to avoid downloading over and over via download-mysql script
+# RUN (mkdir /orchestrator/orchestrator-ci-env/mysql-tarballs-downloaded)
+# COPY docker/Percona-Server-8.0.26-16-Linux.x86_64.glibc2.12-minimal.tar.gz /orchestrator/orchestrator-ci-env/mysql-tarballs-downloaded/ 
 
 RUN (cd /orchestrator/orchestrator-ci-env && cp bin/linux/systemctl.py /usr/bin/systemctl)
 RUN (cd /orchestrator/orchestrator-ci-env && script/deploy-haproxy)
@@ -19,4 +39,4 @@ WORKDIR /orchestrator
 COPY . .
 RUN (cd /orchestrator && script/build)
 
-CMD (cd /orchestrator/orchestrator-ci-env && script/docker-entry && cd /orchestrator && docker/docker-entry-system && /bin/bash)
+CMD (cd /orchestrator/orchestrator-ci-env && script/docker-entry && cd /orchestrator && docker/docker-entry-system && docker/docker-entry-system-tests)

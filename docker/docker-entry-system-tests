@@ -1,0 +1,14 @@
+#!/bin/bash
+
+# Make sure that we use binaries from the bundle we installed, not the system ones
+mysql_bin_dir=(~/opt/mysql/*/bin)
+PATH=$mysql_bin_dir:$PATH
+echo PATH: $PATH
+
+if [ "$RUN_TESTS" == "YES" ] ; then
+  echo "Automatic tests start requested"
+  script/test-system
+else
+  echo "Automatic tests start skipped"
+  /bin/bash
+fi

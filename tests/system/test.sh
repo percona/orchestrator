@@ -165,6 +165,12 @@ test_step() {
       diff_result=$?
       if [ $diff_result -ne 0 ] ; then
         echo "ERROR $test_name/$test_step_name output does not match expect_output"
+	echo "TEST OUTPUT"
+        echo "---"
+	cat $test_outfile
+        echo "---"
+
+	echo "DIFF"
         echo "---"
         cat $test_diff_file
         echo "---"
@@ -311,7 +317,12 @@ test_all() {
           echo "$test_name" >> $tests_successful_file
         else
           echo "$test_name" >> $tests_failed_file
-          exit 1
+          if [ "$ALLOW_TESTS_FAILURES" != "YES" ] ; then
+            echo "Tests failures not allowed. Exiting."
+            exit 1
+          else
+            echo "Tests failures allowed. Continuing."
+          fi
         fi
       else
         : # echo "# should not attempt $test_name"

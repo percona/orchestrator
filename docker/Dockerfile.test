@@ -8,14 +8,19 @@ RUN rm -rf /var/lib/apt/lists/*
 ENV WORKPATH /go/src/github.com/openark/orchestrator
 WORKDIR $WORKPATH
 
-RUN curl -O "https://raw.githubusercontent.com/openark/orchestrator-ci-env/master/bin/linux/dbdeployer.gz"
-RUN curl -O "https://raw.githubusercontent.com/openark/orchestrator-ci-env/master/mysql-tarballs/mysql-5.7.26.tar.xz"
-RUN gunzip ./dbdeployer.gz
-RUN chmod +x ./dbdeployer
-RUN mkdir -p ./sandbox/binary
+# Setup dbdeployer
+RUN mkdir /dbdeployer
+RUN (cd /dbdeployer && wget https://github.com/datacharmer/dbdeployer/releases/download/v1.64.0/dbdeployer-1.64.0.linux.tar.gz)
+RUN (cd /dbdeployer && tar -xf dbdeployer-1.64.0.linux.tar.gz)
+RUN (cd /dbdeployer && ln -s dbdeployer-1.64.0.linux dbdeployer)
+RUN (cd /dbdeployer && ./dbdeployer defaults update reserved-ports '0')
 
-RUN ./dbdeployer unpack mysql-5.7.26.tar.xz --sandbox-binary $WORKPATH/sandbox/binary
+# For dev purposes only, just to avoid downloading over and over via download-mysql script
+# RUN (mkdir /mysql-tarballs-downloaded)
+# COPY docker/Percona-Server-8.0.26-16-Linux.x86_64.glibc2.12-minimal.tar.gz /mysql-tarballs-downloaded/ 
 
 COPY . .
+RUN (cd /dbdeployer && ./dbdeployer defaults update reserved-ports '0')
 
-CMD ["script/test-all"]
+ENV TARBAL_URL_DEFAULT https://raw.githubusercontent.com/kamil-holubicki/orchestrator-ci-env/master/mysql-tarballs/mysql-5.7.26.tar.xz
+CMD (cd $WORKPATH && "script/download-mysql" && "script/test-all")
