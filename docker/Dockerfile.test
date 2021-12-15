@@ -22,5 +22,5 @@ RUN (cd /dbdeployer && ./dbdeployer defaults update reserved-ports '0')
 COPY . .
 RUN (cd /dbdeployer && ./dbdeployer defaults update reserved-ports '0')
 
-ENV TARBAL_URL_DEFAULT https://raw.githubusercontent.com/kamil-holubicki/orchestrator-ci-env/master/mysql-tarballs/mysql-5.7.26.tar.xz
+ENV TARBAL_URL_DEFAULT https://raw.githubusercontent.com/percona/orchestrator-ci-env/master/mysql-tarballs/mysql-5.7.26.tar.xz
 CMD (cd $WORKPATH && "script/download-mysql" && "script/test-all")
