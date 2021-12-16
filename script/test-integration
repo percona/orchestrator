@@ -4,10 +4,30 @@ export GOPATH="$PWD/.gopath"
 cd .gopath/src/github.com/openark/orchestrator
 
 setup_mysql() {
-  if [ ! -f "dbdeployer" ] ; then
+  if [ ! -f "/dbdeployer/dbdeployer" ] ; then
     return
   fi
-  ./dbdeployer deploy single "5.7.21" --sandbox-binary $PWD/sandbox/binary --sandbox-home $PWD/sandboxes --sandbox-directory orc-sandbox --port=3306
+
+  if [ -d "/mysql-tarballs-downloaded" ] ; then
+    # if we downloaded MySQL, use it for tests
+    tar_file=(/mysql-tarballs-downloaded/*)
+  else
+    # use bundled version
+    tar_file=(mysql-tarballs/*)
+  fi
+
+  mkdir -p ~/opt/mysql
+  /dbdeployer/dbdeployer unpack $tar_file
+
+  pushd ~/opt/mysql
+  version=(*)
+  popd
+ 
+  echo tar_file: $tar_file
+  echo version: $version
+
+  /dbdeployer/dbdeployer deploy single $version --sandbox-home $PWD/sandboxes --sandbox-directory orc-sandbox --port=3306
+
   mkdir -p bin
   ln -s /go/src/github.com/openark/orchestrator/sandboxes/orc-sandbox/use bin/mysql
   chmod +x bin/mysql

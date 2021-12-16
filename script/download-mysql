@@ -1,0 +1,19 @@
+#!/bin/bash
+
+# Download PS tarball. Comment it out if direct copy is done in Dockerfile
+
+if [[ -z "${TARBALL_URL}" ]] ; then
+  echo Downloading custom tarball skipped. Will use default one.
+  if [[ -n "${TARBAL_URL_DEFAULT}" ]] ; then
+    echo Downloading default tarball.
+    mkdir /mysql-tarballs-downloaded
+    pushd /mysql-tarballs-downloaded
+    wget ${TARBAL_URL_DEFAULT}  
+    popd
+  fi
+else
+  mkdir /mysql-tarballs-downloaded
+  pushd /mysql-tarballs-downloaded
+  wget ${TARBALL_URL}  
+  popd
+fi
