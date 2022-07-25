@@ -380,9 +380,14 @@ func ReadTopologyInstanceBufferable(instanceKey *InstanceKey, bufferWrites bool,
 
 	latency.Start("instance")
 	db, err := db.OpenDiscovery(instanceKey.Hostname, instanceKey.Port)
-	err = db.Ping()
-	latency.Stop("instance")
-	if err != nil {
+	if err == nil {
+		err = db.Ping()
+		latency.Stop("instance")
+		if err != nil {
+			goto Cleanup
+		}
+	}else{
+		latency.Stop("instance")
 		goto Cleanup
 	}
 
