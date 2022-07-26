@@ -386,7 +386,7 @@ func ReadTopologyInstanceBufferable(instanceKey *InstanceKey, bufferWrites bool,
 		if err != nil {
 			goto Cleanup
 		}
-	}else{
+	} else {
 		latency.Stop("instance")
 		goto Cleanup
 	}
