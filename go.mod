@@ -38,8 +38,8 @@ require (
 	github.com/samuel/go-zookeeper v0.0.0-20201211165307-7117e9ea2414
 	github.com/sjmudd/stopwatch v0.0.0-20170103085848-637ef30077b7
 	github.com/stretchr/testify v1.6.1 // indirect
-	golang.org/x/crypto v0.0.0-20200930160638-afb6bcd081ae // indirect
-	golang.org/x/net v0.0.0-20200930145003-4acb6c075d10 // indirect
+       golang.org/x/crypto v0.0.0-20220722155217-630584e8d5aa // indirect
+	golang.org/x/net v0.0.0-20220909164309-bea034e7d591 // indirect
 	golang.org/x/sys v0.0.0-20201126233918-771906719818 // indirect
 	gopkg.in/gcfg.v1 v1.2.3
 	gopkg.in/warnings.v0 v0.1.2 // indirect
