@@ -70,7 +70,7 @@ var isElectedNode int64 = 0
 
 var recentDiscoveryOperationKeys *cache.Cache
 var pseudoGTIDPublishCache = cache.New(time.Minute, time.Second)
-var kvFoundCache = cache.New(10*time.Minute, time.Minute)
+var kvFoundCache = cache.New(10*time.Second, time.Second)
 
 func init() {
 	snapshotDiscoveryKeys = make(chan inst.InstanceKey, 10)

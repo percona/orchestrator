@@ -1438,9 +1438,64 @@ func checkAndRecoverDeadCoMaster(analysisEntry inst.ReplicationAnalysis, candida
 		recoverDeadCoMasterSuccessCounter.Inc(1)
 
 		if config.Config.ApplyMySQLPromotionAfterMasterFailover {
-			AuditTopologyRecovery(topologyRecovery, fmt.Sprintf("- RecoverDeadMaster: will apply MySQL changes to promoted master"))
-			inst.SetReadOnly(&promotedReplica.Key, false)
+			AuditTopologyRecovery(topologyRecovery, fmt.Sprintf("- RecoverDeadCoMaster: will apply MySQL changes to promoted master"))
+			{
+				_, err := inst.ResetReplicationOperation(&promotedReplica.Key)
+				if err != nil {
+					// Ugly, but this is important. Let's give it another try
+					_, err = inst.ResetReplicationOperation(&promotedReplica.Key)
+				}
+				AuditTopologyRecovery(topologyRecovery, fmt.Sprintf("- RecoverDeadCoMaster: applying RESET SLAVE ALL on promoted master: success=%t", (err == nil)))
+				if err != nil {
+					AuditTopologyRecovery(topologyRecovery, fmt.Sprintf("- RecoverDeadCoMaster: NOTE that %+v is promoted even though SHOW SLAVE STATUS may still show it has a master", promotedReplica.Key))
+				}
+			}
+			{
+				_, err := inst.SetReadOnly(&promotedReplica.Key, false)
+				AuditTopologyRecovery(topologyRecovery, fmt.Sprintf("- RecoverDeadCoMaster: applying read-only=0 on promoted master: success=%t", (err == nil)))
+			}
+			// Let's attempt, though we won't necessarily succeed, to set old master as read-only
+			go func() {
+				_, err := inst.SetReadOnly(&analysisEntry.AnalyzedInstanceKey, true)
+				AuditTopologyRecovery(topologyRecovery, fmt.Sprintf("- RecoverDeadCoMaster: applying read-only=1 on demoted master: success=%t", (err == nil)))
+			}()
 		}
+
+		kvPairs := inst.GetClusterMasterKVPairs(analysisEntry.ClusterDetails.ClusterAlias, &promotedReplica.Key)
+		AuditTopologyRecovery(topologyRecovery, fmt.Sprintf("Writing KV %+v", kvPairs))
+		if orcraft.IsRaftEnabled() {
+			for _, kvPair := range kvPairs {
+				_, err := orcraft.PublishCommand("put-key-value", kvPair)
+				log.Errore(err)
+			}
+			// since we'll be affecting 3rd party tools here, we _prefer_ to mitigate re-applying
+			// of the put-key-value event upon startup. We _recommend_ a snapshot in the near future.
+			go orcraft.PublishCommand("async-snapshot", "")
+		} else {
+			err := kv.PutKVPairs(kvPairs)
+			log.Errore(err)
+		}
+		{
+			AuditTopologyRecovery(topologyRecovery, fmt.Sprintf("Distributing KV %+v", kvPairs))
+			err := kv.DistributePairs(kvPairs)
+			log.Errore(err)
+		}
+
+		func() error {
+			before := analysisEntry.AnalyzedInstanceKey.StringCode()
+			after := promotedReplica.Key.StringCode()
+			AuditTopologyRecovery(topologyRecovery, fmt.Sprintf("- RecoverDeadCoMaster: updating cluster_alias: %v -> %v", before, after))
+			//~~~inst.ReplaceClusterName(before, after)
+			if alias := analysisEntry.ClusterDetails.ClusterAlias; alias != "" {
+				inst.SetClusterAlias(promotedReplica.Key.StringCode(), alias)
+			} else {
+				inst.ReplaceAliasClusterName(before, after)
+			}
+			return nil
+		}()
+
+		attributes.SetGeneralAttribute(analysisEntry.ClusterDetails.ClusterDomain, promotedReplica.Key.StringCode())
+
 		if !skipProcesses {
 			// Execute post intermediate-master-failover processes
 			topologyRecovery.SuccessorKey = &promotedReplica.Key
