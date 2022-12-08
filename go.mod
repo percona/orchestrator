@@ -45,4 +45,8 @@ require (
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 )
 
-replace github.com/hashicorp/raft => github.com/openark/raft v0.0.0-20170918052300-fba9f909f7fe
+replace (
+        github.com/hashicorp/raft => github.com/openark/raft v0.0.0-20170918052300-fba9f909f7fe
+        golang.org/x/text v0.3.0 => golang.org/x/text v0.3.8
+	golang.org/x/text v0.3.7 => golang.org/x/text v0.3.8
+)
