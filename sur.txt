@@ -1,0 +1,367 @@
+On branch DISTMYSQL-209
+Your branch is up to date with 'origin/DISTMYSQL-209'.
+
+Changes not staged for commit:
+  (use "git add/rm <file>..." to update what will be committed)
+  (use "git checkout -- <file>..." to discard changes in working directory)
+
+	modified:   go.mod
+	modified:   go.sum
+	deleted:    vendor/golang.org/x/crypto/AUTHORS
+	deleted:    vendor/golang.org/x/crypto/CONTRIBUTORS
+	modified:   vendor/golang.org/x/crypto/ssh/terminal/terminal.go
+	deleted:    vendor/golang.org/x/crypto/ssh/terminal/util.go
+	deleted:    vendor/golang.org/x/crypto/ssh/terminal/util_aix.go
+	deleted:    vendor/golang.org/x/crypto/ssh/terminal/util_bsd.go
+	deleted:    vendor/golang.org/x/crypto/ssh/terminal/util_linux.go
+	deleted:    vendor/golang.org/x/crypto/ssh/terminal/util_plan9.go
+	deleted:    vendor/golang.org/x/crypto/ssh/terminal/util_solaris.go
+	deleted:    vendor/golang.org/x/crypto/ssh/terminal/util_windows.go
+	deleted:    vendor/golang.org/x/sys/AUTHORS
+	deleted:    vendor/golang.org/x/sys/CONTRIBUTORS
+	modified:   vendor/golang.org/x/sys/unix/README.md
+	modified:   vendor/golang.org/x/sys/unix/aliases.go
+	modified:   vendor/golang.org/x/sys/unix/asm_aix_ppc64.s
+	deleted:    vendor/golang.org/x/sys/unix/asm_darwin_386.s
+	deleted:    vendor/golang.org/x/sys/unix/asm_darwin_amd64.s
+	deleted:    vendor/golang.org/x/sys/unix/asm_darwin_arm.s
+	deleted:    vendor/golang.org/x/sys/unix/asm_darwin_arm64.s
+	deleted:    vendor/golang.org/x/sys/unix/asm_dragonfly_amd64.s
+	deleted:    vendor/golang.org/x/sys/unix/asm_freebsd_386.s
+	deleted:    vendor/golang.org/x/sys/unix/asm_freebsd_amd64.s
+	deleted:    vendor/golang.org/x/sys/unix/asm_freebsd_arm.s
+	deleted:    vendor/golang.org/x/sys/unix/asm_freebsd_arm64.s
+	modified:   vendor/golang.org/x/sys/unix/asm_linux_386.s
+	modified:   vendor/golang.org/x/sys/unix/asm_linux_amd64.s
+	modified:   vendor/golang.org/x/sys/unix/asm_linux_arm.s
+	modified:   vendor/golang.org/x/sys/unix/asm_linux_arm64.s
+	modified:   vendor/golang.org/x/sys/unix/asm_linux_mips64x.s
+	modified:   vendor/golang.org/x/sys/unix/asm_linux_mipsx.s
+	modified:   vendor/golang.org/x/sys/unix/asm_linux_ppc64x.s
+	modified:   vendor/golang.org/x/sys/unix/asm_linux_riscv64.s
+	modified:   vendor/golang.org/x/sys/unix/asm_linux_s390x.s
+	deleted:    vendor/golang.org/x/sys/unix/asm_netbsd_386.s
+	deleted:    vendor/golang.org/x/sys/unix/asm_netbsd_amd64.s
+	deleted:    vendor/golang.org/x/sys/unix/asm_netbsd_arm.s
+	deleted:    vendor/golang.org/x/sys/unix/asm_netbsd_arm64.s
+	deleted:    vendor/golang.org/x/sys/unix/asm_openbsd_386.s
+	deleted:    vendor/golang.org/x/sys/unix/asm_openbsd_amd64.s
+	deleted:    vendor/golang.org/x/sys/unix/asm_openbsd_arm.s
+	deleted:    vendor/golang.org/x/sys/unix/asm_openbsd_arm64.s
+	modified:   vendor/golang.org/x/sys/unix/asm_openbsd_mips64.s
+	modified:   vendor/golang.org/x/sys/unix/asm_solaris_amd64.s
+	modified:   vendor/golang.org/x/sys/unix/cap_freebsd.go
+	modified:   vendor/golang.org/x/sys/unix/constants.go
+	modified:   vendor/golang.org/x/sys/unix/dev_aix_ppc.go
+	modified:   vendor/golang.org/x/sys/unix/dev_aix_ppc64.go
+	modified:   vendor/golang.org/x/sys/unix/dirent.go
+	modified:   vendor/golang.org/x/sys/unix/endian_big.go
+	modified:   vendor/golang.org/x/sys/unix/endian_little.go
+	modified:   vendor/golang.org/x/sys/unix/env_unix.go
+	deleted:    vendor/golang.org/x/sys/unix/errors_freebsd_386.go
+	deleted:    vendor/golang.org/x/sys/unix/errors_freebsd_amd64.go
+	deleted:    vendor/golang.org/x/sys/unix/errors_freebsd_arm.go
+	deleted:    vendor/golang.org/x/sys/unix/errors_freebsd_arm64.go
+	modified:   vendor/golang.org/x/sys/unix/fcntl.go
+	modified:   vendor/golang.org/x/sys/unix/fcntl_linux_32bit.go
+	modified:   vendor/golang.org/x/sys/unix/fdset.go
+	modified:   vendor/golang.org/x/sys/unix/gccgo.go
+	modified:   vendor/golang.org/x/sys/unix/gccgo_linux_amd64.go
+	modified:   vendor/golang.org/x/sys/unix/ioctl.go
+	modified:   vendor/golang.org/x/sys/unix/mkall.sh
+	modified:   vendor/golang.org/x/sys/unix/mkerrors.sh
+	modified:   vendor/golang.org/x/sys/unix/pagesize_unix.go
+	modified:   vendor/golang.org/x/sys/unix/race.go
+	modified:   vendor/golang.org/x/sys/unix/race0.go
+	modified:   vendor/golang.org/x/sys/unix/readdirent_getdents.go
+	modified:   vendor/golang.org/x/sys/unix/readdirent_getdirentries.go
+	modified:   vendor/golang.org/x/sys/unix/sockcmsg_linux.go
+	modified:   vendor/golang.org/x/sys/unix/sockcmsg_unix.go
+	modified:   vendor/golang.org/x/sys/unix/sockcmsg_unix_other.go
+	modified:   vendor/golang.org/x/sys/unix/str.go
+	modified:   vendor/golang.org/x/sys/unix/syscall.go
+	modified:   vendor/golang.org/x/sys/unix/syscall_aix.go
+	modified:   vendor/golang.org/x/sys/unix/syscall_aix_ppc.go
+	modified:   vendor/golang.org/x/sys/unix/syscall_aix_ppc64.go
+	modified:   vendor/golang.org/x/sys/unix/syscall_bsd.go
+	modified:   vendor/golang.org/x/sys/unix/syscall_darwin.1_12.go
+	modified:   vendor/golang.org/x/sys/unix/syscall_darwin.1_13.go
+	modified:   vendor/golang.org/x/sys/unix/syscall_darwin.go
+	deleted:    vendor/golang.org/x/sys/unix/syscall_darwin_386.go
+	modified:   vendor/golang.org/x/sys/unix/syscall_darwin_amd64.go
+	deleted:    vendor/golang.org/x/sys/unix/syscall_darwin_arm.go
+	modified:   vendor/golang.org/x/sys/unix/syscall_darwin_arm64.go
+	modified:   vendor/golang.org/x/sys/unix/syscall_darwin_libSystem.go
+	modified:   vendor/golang.org/x/sys/unix/syscall_dragonfly.go
+	modified:   vendor/golang.org/x/sys/unix/syscall_dragonfly_amd64.go
+	modified:   vendor/golang.org/x/sys/unix/syscall_freebsd.go
+	modified:   vendor/golang.org/x/sys/unix/syscall_freebsd_386.go
+	modified:   vendor/golang.org/x/sys/unix/syscall_freebsd_amd64.go
+	modified:   vendor/golang.org/x/sys/unix/syscall_freebsd_arm.go
+	modified:   vendor/golang.org/x/sys/unix/syscall_freebsd_arm64.go
+	modified:   vendor/golang.org/x/sys/unix/syscall_illumos.go
+	modified:   vendor/golang.org/x/sys/unix/syscall_linux.go
+	modified:   vendor/golang.org/x/sys/unix/syscall_linux_386.go
+	modified:   vendor/golang.org/x/sys/unix/syscall_linux_amd64.go
+	modified:   vendor/golang.org/x/sys/unix/syscall_linux_amd64_gc.go
+	modified:   vendor/golang.org/x/sys/unix/syscall_linux_arm.go
+	modified:   vendor/golang.org/x/sys/unix/syscall_linux_arm64.go
+	modified:   vendor/golang.org/x/sys/unix/syscall_linux_gc.go
+	modified:   vendor/golang.org/x/sys/unix/syscall_linux_gc_386.go
+	modified:   vendor/golang.org/x/sys/unix/syscall_linux_gc_arm.go
+	modified:   vendor/golang.org/x/sys/unix/syscall_linux_gccgo_386.go
+	modified:   vendor/golang.org/x/sys/unix/syscall_linux_gccgo_arm.go
+	modified:   vendor/golang.org/x/sys/unix/syscall_linux_mips64x.go
+	modified:   vendor/golang.org/x/sys/unix/syscall_linux_mipsx.go
+	modified:   vendor/golang.org/x/sys/unix/syscall_linux_ppc64x.go
+	modified:   vendor/golang.org/x/sys/unix/syscall_linux_riscv64.go
+	modified:   vendor/golang.org/x/sys/unix/syscall_linux_s390x.go
+	modified:   vendor/golang.org/x/sys/unix/syscall_linux_sparc64.go
+	modified:   vendor/golang.org/x/sys/unix/syscall_netbsd.go
+	modified:   vendor/golang.org/x/sys/unix/syscall_netbsd_386.go
+	modified:   vendor/golang.org/x/sys/unix/syscall_netbsd_amd64.go
+	modified:   vendor/golang.org/x/sys/unix/syscall_netbsd_arm.go
+	modified:   vendor/golang.org/x/sys/unix/syscall_netbsd_arm64.go
+	modified:   vendor/golang.org/x/sys/unix/syscall_openbsd.go
+	modified:   vendor/golang.org/x/sys/unix/syscall_openbsd_386.go
+	modified:   vendor/golang.org/x/sys/unix/syscall_openbsd_amd64.go
+	modified:   vendor/golang.org/x/sys/unix/syscall_openbsd_arm.go
+	modified:   vendor/golang.org/x/sys/unix/syscall_openbsd_arm64.go
+	modified:   vendor/golang.org/x/sys/unix/syscall_openbsd_mips64.go
+	modified:   vendor/golang.org/x/sys/unix/syscall_solaris.go
+	modified:   vendor/golang.org/x/sys/unix/syscall_solaris_amd64.go
+	modified:   vendor/golang.org/x/sys/unix/syscall_unix.go
+	modified:   vendor/golang.org/x/sys/unix/syscall_unix_gc.go
+	modified:   vendor/golang.org/x/sys/unix/syscall_unix_gc_ppc64x.go
+	modified:   vendor/golang.org/x/sys/unix/timestruct.go
+	modified:   vendor/golang.org/x/sys/unix/xattr_bsd.go
+	modified:   vendor/golang.org/x/sys/unix/zerrors_aix_ppc.go
+	modified:   vendor/golang.org/x/sys/unix/zerrors_aix_ppc64.go
+	deleted:    vendor/golang.org/x/sys/unix/zerrors_darwin_386.go
+	modified:   vendor/golang.org/x/sys/unix/zerrors_darwin_amd64.go
+	deleted:    vendor/golang.org/x/sys/unix/zerrors_darwin_arm.go
+	modified:   vendor/golang.org/x/sys/unix/zerrors_darwin_arm64.go
+	modified:   vendor/golang.org/x/sys/unix/zerrors_dragonfly_amd64.go
+	modified:   vendor/golang.org/x/sys/unix/zerrors_freebsd_386.go
+	modified:   vendor/golang.org/x/sys/unix/zerrors_freebsd_amd64.go
+	modified:   vendor/golang.org/x/sys/unix/zerrors_freebsd_arm.go
+	modified:   vendor/golang.org/x/sys/unix/zerrors_freebsd_arm64.go
+	modified:   vendor/golang.org/x/sys/unix/zerrors_linux.go
+	modified:   vendor/golang.org/x/sys/unix/zerrors_linux_386.go
+	modified:   vendor/golang.org/x/sys/unix/zerrors_linux_amd64.go
+	modified:   vendor/golang.org/x/sys/unix/zerrors_linux_arm.go
+	modified:   vendor/golang.org/x/sys/unix/zerrors_linux_arm64.go
+	modified:   vendor/golang.org/x/sys/unix/zerrors_linux_mips.go
+	modified:   vendor/golang.org/x/sys/unix/zerrors_linux_mips64.go
+	modified:   vendor/golang.org/x/sys/unix/zerrors_linux_mips64le.go
+	modified:   vendor/golang.org/x/sys/unix/zerrors_linux_mipsle.go
+	modified:   vendor/golang.org/x/sys/unix/zerrors_linux_ppc64.go
+	modified:   vendor/golang.org/x/sys/unix/zerrors_linux_ppc64le.go
+	modified:   vendor/golang.org/x/sys/unix/zerrors_linux_riscv64.go
+	modified:   vendor/golang.org/x/sys/unix/zerrors_linux_s390x.go
+	modified:   vendor/golang.org/x/sys/unix/zerrors_linux_sparc64.go
+	modified:   vendor/golang.org/x/sys/unix/zerrors_netbsd_386.go
+	modified:   vendor/golang.org/x/sys/unix/zerrors_netbsd_amd64.go
+	modified:   vendor/golang.org/x/sys/unix/zerrors_netbsd_arm.go
+	modified:   vendor/golang.org/x/sys/unix/zerrors_netbsd_arm64.go
+	modified:   vendor/golang.org/x/sys/unix/zerrors_openbsd_386.go
+	modified:   vendor/golang.org/x/sys/unix/zerrors_openbsd_amd64.go
+	modified:   vendor/golang.org/x/sys/unix/zerrors_openbsd_arm.go
+	modified:   vendor/golang.org/x/sys/unix/zerrors_openbsd_arm64.go
+	modified:   vendor/golang.org/x/sys/unix/zerrors_openbsd_mips64.go
+	modified:   vendor/golang.org/x/sys/unix/zerrors_solaris_amd64.go
+	modified:   vendor/golang.org/x/sys/unix/zptrace_armnn_linux.go
+	modified:   vendor/golang.org/x/sys/unix/zptrace_mipsnn_linux.go
+	modified:   vendor/golang.org/x/sys/unix/zptrace_mipsnnle_linux.go
+	modified:   vendor/golang.org/x/sys/unix/zptrace_x86_linux.go
+	modified:   vendor/golang.org/x/sys/unix/zsyscall_aix_ppc.go
+	modified:   vendor/golang.org/x/sys/unix/zsyscall_aix_ppc64.go
+	modified:   vendor/golang.org/x/sys/unix/zsyscall_aix_ppc64_gc.go
+	modified:   vendor/golang.org/x/sys/unix/zsyscall_aix_ppc64_gccgo.go
+	deleted:    vendor/golang.org/x/sys/unix/zsyscall_darwin_386.1_13.go
+	deleted:    vendor/golang.org/x/sys/unix/zsyscall_darwin_386.1_13.s
+	deleted:    vendor/golang.org/x/sys/unix/zsyscall_darwin_386.go
+	deleted:    vendor/golang.org/x/sys/unix/zsyscall_darwin_386.s
+	modified:   vendor/golang.org/x/sys/unix/zsyscall_darwin_amd64.1_13.go
+	modified:   vendor/golang.org/x/sys/unix/zsyscall_darwin_amd64.1_13.s
+	modified:   vendor/golang.org/x/sys/unix/zsyscall_darwin_amd64.go
+	modified:   vendor/golang.org/x/sys/unix/zsyscall_darwin_amd64.s
+	deleted:    vendor/golang.org/x/sys/unix/zsyscall_darwin_arm.1_13.go
+	deleted:    vendor/golang.org/x/sys/unix/zsyscall_darwin_arm.1_13.s
+	deleted:    vendor/golang.org/x/sys/unix/zsyscall_darwin_arm.go
+	deleted:    vendor/golang.org/x/sys/unix/zsyscall_darwin_arm.s
+	modified:   vendor/golang.org/x/sys/unix/zsyscall_darwin_arm64.1_13.go
+	modified:   vendor/golang.org/x/sys/unix/zsyscall_darwin_arm64.1_13.s
+	modified:   vendor/golang.org/x/sys/unix/zsyscall_darwin_arm64.go
+	modified:   vendor/golang.org/x/sys/unix/zsyscall_darwin_arm64.s
+	modified:   vendor/golang.org/x/sys/unix/zsyscall_dragonfly_amd64.go
+	modified:   vendor/golang.org/x/sys/unix/zsyscall_freebsd_386.go
+	modified:   vendor/golang.org/x/sys/unix/zsyscall_freebsd_amd64.go
+	modified:   vendor/golang.org/x/sys/unix/zsyscall_freebsd_arm.go
+	modified:   vendor/golang.org/x/sys/unix/zsyscall_freebsd_arm64.go
+	modified:   vendor/golang.org/x/sys/unix/zsyscall_illumos_amd64.go
+	modified:   vendor/golang.org/x/sys/unix/zsyscall_linux.go
+	modified:   vendor/golang.org/x/sys/unix/zsyscall_linux_386.go
+	modified:   vendor/golang.org/x/sys/unix/zsyscall_linux_amd64.go
+	modified:   vendor/golang.org/x/sys/unix/zsyscall_linux_arm.go
+	modified:   vendor/golang.org/x/sys/unix/zsyscall_linux_arm64.go
+	modified:   vendor/golang.org/x/sys/unix/zsyscall_linux_mips.go
+	modified:   vendor/golang.org/x/sys/unix/zsyscall_linux_mips64.go
+	modified:   vendor/golang.org/x/sys/unix/zsyscall_linux_mips64le.go
+	modified:   vendor/golang.org/x/sys/unix/zsyscall_linux_mipsle.go
+	modified:   vendor/golang.org/x/sys/unix/zsyscall_linux_ppc64.go
+	modified:   vendor/golang.org/x/sys/unix/zsyscall_linux_ppc64le.go
+	modified:   vendor/golang.org/x/sys/unix/zsyscall_linux_riscv64.go
+	modified:   vendor/golang.org/x/sys/unix/zsyscall_linux_s390x.go
+	modified:   vendor/golang.org/x/sys/unix/zsyscall_linux_sparc64.go
+	modified:   vendor/golang.org/x/sys/unix/zsyscall_netbsd_386.go
+	modified:   vendor/golang.org/x/sys/unix/zsyscall_netbsd_amd64.go
+	modified:   vendor/golang.org/x/sys/unix/zsyscall_netbsd_arm.go
+	modified:   vendor/golang.org/x/sys/unix/zsyscall_netbsd_arm64.go
+	modified:   vendor/golang.org/x/sys/unix/zsyscall_openbsd_386.go
+	modified:   vendor/golang.org/x/sys/unix/zsyscall_openbsd_amd64.go
+	modified:   vendor/golang.org/x/sys/unix/zsyscall_openbsd_arm.go
+	modified:   vendor/golang.org/x/sys/unix/zsyscall_openbsd_arm64.go
+	modified:   vendor/golang.org/x/sys/unix/zsyscall_openbsd_mips64.go
+	modified:   vendor/golang.org/x/sys/unix/zsyscall_solaris_amd64.go
+	modified:   vendor/golang.org/x/sys/unix/zsysctl_openbsd_386.go
+	modified:   vendor/golang.org/x/sys/unix/zsysctl_openbsd_amd64.go
+	modified:   vendor/golang.org/x/sys/unix/zsysctl_openbsd_arm.go
+	modified:   vendor/golang.org/x/sys/unix/zsysctl_openbsd_arm64.go
+	modified:   vendor/golang.org/x/sys/unix/zsysctl_openbsd_mips64.go
+	deleted:    vendor/golang.org/x/sys/unix/zsysnum_darwin_386.go
+	modified:   vendor/golang.org/x/sys/unix/zsysnum_darwin_amd64.go
+	deleted:    vendor/golang.org/x/sys/unix/zsysnum_darwin_arm.go
+	modified:   vendor/golang.org/x/sys/unix/zsysnum_darwin_arm64.go
+	modified:   vendor/golang.org/x/sys/unix/zsysnum_dragonfly_amd64.go
+	modified:   vendor/golang.org/x/sys/unix/zsysnum_freebsd_386.go
+	modified:   vendor/golang.org/x/sys/unix/zsysnum_freebsd_amd64.go
+	modified:   vendor/golang.org/x/sys/unix/zsysnum_freebsd_arm.go
+	modified:   vendor/golang.org/x/sys/unix/zsysnum_freebsd_arm64.go
+	modified:   vendor/golang.org/x/sys/unix/zsysnum_linux_386.go
+	modified:   vendor/golang.org/x/sys/unix/zsysnum_linux_amd64.go
+	modified:   vendor/golang.org/x/sys/unix/zsysnum_linux_arm.go
+	modified:   vendor/golang.org/x/sys/unix/zsysnum_linux_arm64.go
+	modified:   vendor/golang.org/x/sys/unix/zsysnum_linux_mips.go
+	modified:   vendor/golang.org/x/sys/unix/zsysnum_linux_mips64.go
+	modified:   vendor/golang.org/x/sys/unix/zsysnum_linux_mips64le.go
+	modified:   vendor/golang.org/x/sys/unix/zsysnum_linux_mipsle.go
+	modified:   vendor/golang.org/x/sys/unix/zsysnum_linux_ppc64.go
+	modified:   vendor/golang.org/x/sys/unix/zsysnum_linux_ppc64le.go
+	modified:   vendor/golang.org/x/sys/unix/zsysnum_linux_riscv64.go
+	modified:   vendor/golang.org/x/sys/unix/zsysnum_linux_s390x.go
+	modified:   vendor/golang.org/x/sys/unix/zsysnum_linux_sparc64.go
+	modified:   vendor/golang.org/x/sys/unix/zsysnum_netbsd_386.go
+	modified:   vendor/golang.org/x/sys/unix/zsysnum_netbsd_amd64.go
+	modified:   vendor/golang.org/x/sys/unix/zsysnum_netbsd_arm.go
+	modified:   vendor/golang.org/x/sys/unix/zsysnum_netbsd_arm64.go
+	modified:   vendor/golang.org/x/sys/unix/zsysnum_openbsd_386.go
+	modified:   vendor/golang.org/x/sys/unix/zsysnum_openbsd_amd64.go
+	modified:   vendor/golang.org/x/sys/unix/zsysnum_openbsd_arm.go
+	modified:   vendor/golang.org/x/sys/unix/zsysnum_openbsd_arm64.go
+	modified:   vendor/golang.org/x/sys/unix/zsysnum_openbsd_mips64.go
+	modified:   vendor/golang.org/x/sys/unix/ztypes_aix_ppc.go
+	modified:   vendor/golang.org/x/sys/unix/ztypes_aix_ppc64.go
+	deleted:    vendor/golang.org/x/sys/unix/ztypes_darwin_386.go
+	modified:   vendor/golang.org/x/sys/unix/ztypes_darwin_amd64.go
+	deleted:    vendor/golang.org/x/sys/unix/ztypes_darwin_arm.go
+	modified:   vendor/golang.org/x/sys/unix/ztypes_darwin_arm64.go
+	modified:   vendor/golang.org/x/sys/unix/ztypes_dragonfly_amd64.go
+	modified:   vendor/golang.org/x/sys/unix/ztypes_freebsd_386.go
+	modified:   vendor/golang.org/x/sys/unix/ztypes_freebsd_amd64.go
+	modified:   vendor/golang.org/x/sys/unix/ztypes_freebsd_arm.go
+	modified:   vendor/golang.org/x/sys/unix/ztypes_freebsd_arm64.go
+	modified:   vendor/golang.org/x/sys/unix/ztypes_linux.go
+	modified:   vendor/golang.org/x/sys/unix/ztypes_linux_386.go
+	modified:   vendor/golang.org/x/sys/unix/ztypes_linux_amd64.go
+	modified:   vendor/golang.org/x/sys/unix/ztypes_linux_arm.go
+	modified:   vendor/golang.org/x/sys/unix/ztypes_linux_arm64.go
+	modified:   vendor/golang.org/x/sys/unix/ztypes_linux_mips.go
+	modified:   vendor/golang.org/x/sys/unix/ztypes_linux_mips64.go
+	modified:   vendor/golang.org/x/sys/unix/ztypes_linux_mips64le.go
+	modified:   vendor/golang.org/x/sys/unix/ztypes_linux_mipsle.go
+	modified:   vendor/golang.org/x/sys/unix/ztypes_linux_ppc64.go
+	modified:   vendor/golang.org/x/sys/unix/ztypes_linux_ppc64le.go
+	modified:   vendor/golang.org/x/sys/unix/ztypes_linux_riscv64.go
+	modified:   vendor/golang.org/x/sys/unix/ztypes_linux_s390x.go
+	modified:   vendor/golang.org/x/sys/unix/ztypes_linux_sparc64.go
+	modified:   vendor/golang.org/x/sys/unix/ztypes_netbsd_386.go
+	modified:   vendor/golang.org/x/sys/unix/ztypes_netbsd_amd64.go
+	modified:   vendor/golang.org/x/sys/unix/ztypes_netbsd_arm.go
+	modified:   vendor/golang.org/x/sys/unix/ztypes_netbsd_arm64.go
+	modified:   vendor/golang.org/x/sys/unix/ztypes_openbsd_386.go
+	modified:   vendor/golang.org/x/sys/unix/ztypes_openbsd_amd64.go
+	modified:   vendor/golang.org/x/sys/unix/ztypes_openbsd_arm.go
+	modified:   vendor/golang.org/x/sys/unix/ztypes_openbsd_arm64.go
+	modified:   vendor/golang.org/x/sys/unix/ztypes_openbsd_mips64.go
+	modified:   vendor/golang.org/x/sys/unix/ztypes_solaris_amd64.go
+	modified:   vendor/golang.org/x/sys/windows/aliases.go
+	modified:   vendor/golang.org/x/sys/windows/empty.s
+	modified:   vendor/golang.org/x/sys/windows/eventlog.go
+	modified:   vendor/golang.org/x/sys/windows/exec_windows.go
+	modified:   vendor/golang.org/x/sys/windows/memory_windows.go
+	modified:   vendor/golang.org/x/sys/windows/mkerrors.bash
+	modified:   vendor/golang.org/x/sys/windows/mksyscall.go
+	modified:   vendor/golang.org/x/sys/windows/race.go
+	modified:   vendor/golang.org/x/sys/windows/race0.go
+	modified:   vendor/golang.org/x/sys/windows/security_windows.go
+	modified:   vendor/golang.org/x/sys/windows/service.go
+	deleted:    vendor/golang.org/x/sys/windows/setupapierrors_windows.go
+	modified:   vendor/golang.org/x/sys/windows/str.go
+	modified:   vendor/golang.org/x/sys/windows/syscall.go
+	modified:   vendor/golang.org/x/sys/windows/syscall_windows.go
+	modified:   vendor/golang.org/x/sys/windows/types_windows.go
+	modified:   vendor/golang.org/x/sys/windows/zerrors_windows.go
+	modified:   vendor/golang.org/x/sys/windows/zsyscall_windows.go
+	modified:   vendor/modules.txt
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+
+	sur.txt
+	vendor/golang.org/x/sys/plan9/
+	vendor/golang.org/x/sys/unix/asm_bsd_386.s
+	vendor/golang.org/x/sys/unix/asm_bsd_amd64.s
+	vendor/golang.org/x/sys/unix/asm_bsd_arm.s
+	vendor/golang.org/x/sys/unix/asm_bsd_arm64.s
+	vendor/golang.org/x/sys/unix/asm_bsd_riscv64.s
+	vendor/golang.org/x/sys/unix/asm_linux_loong64.s
+	vendor/golang.org/x/sys/unix/asm_zos_s390x.s
+	vendor/golang.org/x/sys/unix/dev_zos.go
+	vendor/golang.org/x/sys/unix/epoll_zos.go
+	vendor/golang.org/x/sys/unix/fstatfs_zos.go
+	vendor/golang.org/x/sys/unix/ifreq_linux.go
+	vendor/golang.org/x/sys/unix/ioctl_linux.go
+	vendor/golang.org/x/sys/unix/ioctl_zos.go
+	vendor/golang.org/x/sys/unix/ptrace_darwin.go
+	vendor/golang.org/x/sys/unix/ptrace_ios.go
+	vendor/golang.org/x/sys/unix/syscall_freebsd_riscv64.go
+	vendor/golang.org/x/sys/unix/syscall_linux_alarm.go
+	vendor/golang.org/x/sys/unix/syscall_linux_loong64.go
+	vendor/golang.org/x/sys/unix/syscall_linux_ppc.go
+	vendor/golang.org/x/sys/unix/syscall_zos_s390x.go
+	vendor/golang.org/x/sys/unix/sysvshm_linux.go
+	vendor/golang.org/x/sys/unix/sysvshm_unix.go
+	vendor/golang.org/x/sys/unix/sysvshm_unix_other.go
+	vendor/golang.org/x/sys/unix/zerrors_freebsd_riscv64.go
+	vendor/golang.org/x/sys/unix/zerrors_linux_loong64.go
+	vendor/golang.org/x/sys/unix/zerrors_linux_ppc.go
+	vendor/golang.org/x/sys/unix/zerrors_zos_s390x.go
+	vendor/golang.org/x/sys/unix/zsyscall_freebsd_riscv64.go
+	vendor/golang.org/x/sys/unix/zsyscall_linux_loong64.go
+	vendor/golang.org/x/sys/unix/zsyscall_linux_ppc.go
+	vendor/golang.org/x/sys/unix/zsyscall_zos_s390x.go
+	vendor/golang.org/x/sys/unix/zsysnum_freebsd_riscv64.go
+	vendor/golang.org/x/sys/unix/zsysnum_linux_loong64.go
+	vendor/golang.org/x/sys/unix/zsysnum_linux_ppc.go
+	vendor/golang.org/x/sys/unix/zsysnum_zos_s390x.go
+	vendor/golang.org/x/sys/unix/ztypes_freebsd_riscv64.go
+	vendor/golang.org/x/sys/unix/ztypes_illumos_amd64.go
+	vendor/golang.org/x/sys/unix/ztypes_linux_loong64.go
+	vendor/golang.org/x/sys/unix/ztypes_linux_ppc.go
+	vendor/golang.org/x/sys/unix/ztypes_zos_s390x.go
+	vendor/golang.org/x/sys/windows/setupapi_windows.go
+	vendor/golang.org/x/sys/windows/types_windows_arm64.go
+	vendor/golang.org/x/term/
+
+no changes added to commit (use "git add" and/or "git commit -a")
