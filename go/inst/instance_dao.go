@@ -384,13 +384,16 @@ func ReadTopologyInstanceBufferable(instanceKey *InstanceKey, bufferWrites bool,
 		latency.Stop("instance")
 		goto Cleanup
 	}
+
+	// Even if the instance is dead, we need its key below to update
+	// the backend database's timestamps
+	instance.Key = *instanceKey
+
 	err = db.Ping()
 	if err != nil {
 		goto Cleanup
 	}
 	latency.Stop("instance")
-
-	instance.Key = *instanceKey
 
 	if isMaxScale, resolvedHostname, err = instance.checkMaxScale(db, latency); err != nil {
 		// We do not "goto Cleanup" here, although it should be the correct flow.
