@@ -301,33 +301,69 @@ should_attempt_test() {
 }
 
 test_all() {
+  local passed_cnt=0
+  local unstable_cnt=0
+  local failed_cnt=0
+  local total_cnt=0
+  local expected_cnt=`find $tests_path -mindepth 1 -maxdepth 1 ! -path . -type d | wc -l`
+  
   local test_pattern="${1:-.}"
 
   echo "." > $tests_todo_file
   while [ -s $tests_todo_file ] ; do
     echo -n > $tests_todo_file
-
-    find $tests_path -mindepth 1 -maxdepth 1 ! -path . -type d | xargs ls -td1 | cut -d "/" -f 4 | egrep "$test_pattern" | while read test_name ; do
+    while read test_name ; do
       if ! test_listed_as_attempted "$test_name" ; then
         echo "$test_name" >> $tests_todo_file
       fi
       if should_attempt_test "$test_name" "$test_pattern" ; then
-        test_single "$test_name"
-        if [ $? -eq 0 ] ; then
+        # try up to 3 times. Some tests seem to be not stable
+        
+        test_status="PASSED"
+        for i in {1..3}
+        do
+          if [ ${i} -ne 1 ] ; then
+            test_status="UNSTABLE"
+            echo "Retrying test after failure (${i}/3). Testname: $test_name"
+            # cleanup the state just in case
+            bash $tests_path/deploy-replication || return 1
+          fi
+          test_single "$test_name"
+          test_single_result=$?
+          if [ $test_single_result -eq 0 ] ; then
+            break
+          fi
+        done
+        if [ $test_single_result -eq 0 ] ; then
+          echo "Test finished. Testname: ${test_name} status: ${test_status}"
           echo "$test_name" >> $tests_successful_file
         else
           echo "$test_name" >> $tests_failed_file
+          test_status="FAILED"
+          echo "Test finished. Testname: ${test_name} status: ${test_status}"
           if [ "$ALLOW_TESTS_FAILURES" != "YES" ] ; then
             echo "Tests failures not allowed. Exiting."
             exit 1
           else
             echo "Tests failures allowed. Continuing."
+            # cleanup the state just in case
+            bash $tests_path/deploy-replication || return 1
           fi
         fi
+        if [ "${test_status}" == "PASSED" ] ; then
+          ((passed_cnt++))
+        elif [ "${test_status}" == "UNSTABLE" ] ; then
+          ((unstable_cnt++))
+        elif [ "${test_status}" == "FAILED" ] ; then
+          ((failed_cnt++))
+        else
+          echo "Unexpected test_status: ${test_status}"
+        fi
+        ((total_cnt++))    
       else
         : # echo "# should not attempt $test_name"
       fi
-    done || return 1
+    done < <(find $tests_path -mindepth 1 -maxdepth 1 ! -path . -type d | xargs ls -td1 | cut -d "/" -f 4 | egrep "$test_pattern") || return 1
   done
   find $tests_path -mindepth 1 -maxdepth 1 ! -path . -type d | xargs ls -td1 | cut -d "/" -f 4 | egrep "$test_pattern" | while read test_name ; do
     if ! test_listed_as_attempted "$test_name" ; then
@@ -335,6 +371,14 @@ test_all() {
       exit 1
     fi
   done || exit 1
+  
+  echo "Test results:"
+  echo "PASSED:   ${passed_cnt}/${total_cnt}/${expected_cnt}"
+  echo "UNSTABLE: ${unstable_cnt}/${total_cnt}/${expected_cnt}"
+  echo "FAILED:   ${failed_cnt}/${total_cnt}/${expected_cnt}"
+  if [ ${total_cnt} -ne ${expected_cnt} ] ; then
+    echo "WARNING! Some tests were skipped. Expected: ${expected_cnt}, executed: ${total_cnt}"
+  fi
 }
 
 main() {

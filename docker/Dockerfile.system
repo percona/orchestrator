@@ -27,7 +27,7 @@ RUN (cd /orchestrator/orchestrator-ci-env/bin/linux && ln -s /dbdeployer/dbdeplo
 
 # For dev purposes only, just to avoid downloading over and over via download-mysql script
 # RUN (mkdir /orchestrator/orchestrator-ci-env/mysql-tarballs-downloaded)
-# COPY docker/Percona-Server-8.0.26-16-Linux.x86_64.glibc2.12-minimal.tar.gz /orchestrator/orchestrator-ci-env/mysql-tarballs-downloaded/ 
+# COPY docker/Percona-Server-8.0.30-22-Linux.x86_64.glibc2.17-minimal.tar.gz /orchestrator/orchestrator-ci-env/mysql-tarballs-downloaded/ 
 
 RUN (cd /orchestrator/orchestrator-ci-env && cp bin/linux/systemctl.py /usr/bin/systemctl)
 RUN (cd /orchestrator/orchestrator-ci-env && script/deploy-haproxy)
