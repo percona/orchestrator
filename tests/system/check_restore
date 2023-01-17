@@ -1,3 +1,6 @@
 #!/bin/bash
 
-orchestrator-client -c topology-tabulated -alias ci | cut -d'|' -f 1,2,3
+# sed is to get rid of lag tag (Ns) part as it may fluctuate, but it does not affect tests.
+# "127.0.0.1:10112|1s|ok" -> "127.0.0.1:10112|LAG|ok"
+# It does not change "unknown", "detached" and other non-numeric values.
+orchestrator-client -c topology-tabulated -alias ci | sed -n "s/|[0-9]\+s|/|LAG|/p" | cut -d'|' -f 1,2,3
