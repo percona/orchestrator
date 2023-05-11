@@ -25,6 +25,10 @@ import (
 	"github.com/openark/orchestrator/go/db"
 )
 
+func IsSQLite() bool {
+	return config.Config.IsSQLite()
+}
+
 // ReadClusterNameByAlias
 func ReadClusterNameByAlias(alias string) (clusterName string, err error) {
 	query := `
@@ -114,29 +118,62 @@ func writeClusterAliasManualOverride(clusterName string, alias string) error {
 // gained from database_instance
 func UpdateClusterAliases() error {
 	writeFunc := func() error {
-		_, err := db.ExecOrchestrator(`
-			replace into
-					cluster_alias (alias, cluster_name, last_registered)
-				select
-				    suggested_cluster_alias,
-						cluster_name,
-						now()
-					from
-				    database_instance
-				    left join database_instance_downtime using (hostname, port)
-				  where
-				    suggested_cluster_alias!=''
-						/* exclude newly demoted, downtimed masters */
-						and ifnull(
-								database_instance_downtime.downtime_active = 1
-								and database_instance_downtime.end_timestamp > now()
-								and database_instance_downtime.reason = ?
-							, 0) = 0
-					order by
-						ifnull(last_checked <= last_seen, 0) asc,
-						read_only desc,
-						num_slave_hosts asc
-			`, DowntimeLostInRecoveryMessage)
+		var err error
+		if IsSQLite() {
+			// Sql lite backend
+			_, err = db.ExecOrchestrator(`
+				replace into
+						cluster_alias (alias, cluster_name, last_registered)
+					select
+					    suggested_cluster_alias,
+							cluster_name,
+							now()
+						from
+					    database_instance
+					    left join database_instance_downtime using (hostname, port)
+					  where
+					    suggested_cluster_alias!=''
+							/* exclude newly demoted, downtimed masters */
+							and ifnull(
+									database_instance_downtime.downtime_active = 1
+									and database_instance_downtime.end_timestamp > now()
+									and database_instance_downtime.reason = ?
+								, 0) = 0
+						order by
+							ifnull(last_checked <= last_seen, 0) asc,
+							read_only desc,
+							num_slave_hosts asc
+				`, DowntimeLostInRecoveryMessage)
+		} else {
+			// MySQL backend (Orchestrator supports only SQLite and MySQL backends)
+			// INSERT ON DUPLICATE KEY UPDATE is more performant than REPLACE in MySQL
+			_, err = db.ExecOrchestrator(`
+				INSERT INTO cluster_alias
+				(
+					alias,
+					cluster_name,
+					last_registered
+				)
+				SELECT    di.suggested_cluster_alias,
+					  di.cluster_name,
+					  now()
+				FROM      database_instance di
+				LEFT JOIN database_instance_downtime did
+				USING     (hostname, port)
+				WHERE     di.suggested_cluster_alias != ''
+				/* exclude newly demoted, downtimed masters */
+				AND       Ifnull(did.downtime_active = 1
+				AND       did.end_timestamp > Now()
+				AND       did.reason = ?, 0) = 0
+				ORDER BY  Ifnull(di.last_checked <= di.last_seen, 0) ASC,
+					  di.read_only DESC,
+					  di.num_slave_hosts ASC
+				ON DUPLICATE KEY
+				UPDATE alias = di.suggested_cluster_alias,
+				cluster_name = di.cluster_name,
+				last_registered = now()
+				`, DowntimeLostInRecoveryMessage)
+		}
 		return log.Errore(err)
 	}
 	if err := ExecDBWriteFunc(writeFunc); err != nil {
