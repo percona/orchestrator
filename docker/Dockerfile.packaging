@@ -14,11 +14,11 @@
 # ORC_USER (default: orc_server_user): username used to login to orchestrator backend MySQL server
 # ORC_PASSWORD (default: orc_server_password): password used to login to orchestrator backend MySQL server
 
-FROM golang:1.16.6-stretch
+FROM golang:1.20.3-bullseye
 
 RUN apt-get update
 RUN apt-get install -y ruby ruby-dev rubygems build-essential
-RUN gem install --no-ri --no-rdoc fpm
+RUN gem install --no-document fpm
 ENV GOPATH=/tmp/go
 
 RUN apt-get install -y curl rsync gcc g++ bash git tar rpm
