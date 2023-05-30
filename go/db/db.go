@@ -57,7 +57,7 @@ func getMySQLURI() string {
 	if mysqlURI != "" {
 		return mysqlURI
 	}
-	mysqlURI := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?timeout=%ds&readTimeout=%ds&rejectReadOnly=%t&interpolateParams=true",
+	mysqlURI := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?maxAllowedPacket=0&timeout=%ds&readTimeout=%ds&rejectReadOnly=%t&interpolateParams=true",
 		config.Config.MySQLOrchestratorUser,
 		config.Config.MySQLOrchestratorPassword,
 		config.Config.MySQLOrchestratorHost,
