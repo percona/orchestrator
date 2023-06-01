@@ -2813,8 +2813,10 @@ func relocateReplicasInternal(replicas [](*Instance), instance, other *Instance)
 
 		return RepointTo(replicas, &other.Key)
 	}
+
 	// GTID
-	{
+	if other.UsingGTID() {
+
 		movedReplicas, unmovedReplicas, err, errs := moveReplicasViaGTID(replicas, other, nil)
 
 		if len(movedReplicas) == len(replicas) {
@@ -2823,6 +2825,20 @@ func relocateReplicasInternal(replicas [](*Instance), instance, other *Instance)
 		} else if len(movedReplicas) > 0 {
 			// something was moved via GTID; let's try further on
 			return relocateReplicasInternal(unmovedReplicas, instance, other)
+		}
+
+		// Making sure that if there are any errors in errs, they are reported 
+		if len(errs) > 0 {
+			// There are errors, maybe more than one. Let's concatenate them
+			// so they can be reported correctly in the UI
+			allErrors := "Error(s): "
+
+			for _, err := range errs {
+				allErrors = fmt.Sprintf("%s; %v",allErrors,err)
+			}
+
+			return movedReplicas, log.Errorf("Relocating %+v replicas of %+v below %+v failed %s", len(replicas), instance.Key, other.Key, allErrors), errs
+
 		}
 		// Otherwise nothing was moved via GTID. Maybe we don't have any GTIDs, we continue.
 	}
