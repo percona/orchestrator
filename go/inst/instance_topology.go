@@ -2815,7 +2815,7 @@ func relocateReplicasInternal(replicas [](*Instance), instance, other *Instance)
 	}
 
 	// GTID
-	if other.UsingGTID() {
+	{
 
 		movedReplicas, unmovedReplicas, err, errs := moveReplicasViaGTID(replicas, other, nil)
 
