@@ -278,6 +278,8 @@ type Configuration struct {
 	EnforceExactSemiSyncReplicas               bool              // If true, semi-sync replicas will be enabled/disabled to match the wait count in the desired priority order; this applies to LockedSemiSyncMaster and MasterWithTooManySemiSyncReplicas
 	RecoverLockedSemiSyncMaster                bool              // If true, orchestrator will recover from a LockedSemiSync state by enabling semi-sync on replicas to match the wait count; this behavior can be overridden by EnforceExactSemiSyncReplicas
 	ReasonableLockedSemiSyncMasterSeconds      uint              // Time to evaluate the LockedSemiSyncHypothesis before triggering the LockedSemiSync analysis; falls back to ReasonableReplicationLagSeconds if not set
+	PrependMessagesWithOrcIdentity             string            // use FQDN/hostname/custom to prefix error message returned to the client. Empty string (default)/none skips prefixing.
+	CustomOrcIdentity                          string            // use if PrependMessagesWithOrcIdentity is 'custom'
 }
 
 // ToJSONString will marshal this configuration as JSON
@@ -452,6 +454,8 @@ func newConfiguration() *Configuration {
 		EnforceExactSemiSyncReplicas:               false,
 		RecoverLockedSemiSyncMaster:                false,
 		ReasonableLockedSemiSyncMasterSeconds:      0,
+		PrependMessagesWithOrcIdentity:             "",
+		CustomOrcIdentity:                          "",
 	}
 }
 
