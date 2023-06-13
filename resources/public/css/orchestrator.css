@@ -1011,3 +1011,9 @@ body {
 .instance.instance-search p {
     margin: 8px 0px;
 }
+
+.overlay-counter {
+    margin-left:-5px;
+    font-size: 0.65em;
+    font-weight: bold;
+}
