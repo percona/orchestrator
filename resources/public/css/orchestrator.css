@@ -143,6 +143,10 @@ body {
     cursor: default;
 }
 
+.instance h3 .glyphicon-tags {
+    margin-right: 0.4em;
+}
+
 .instance h3 .instance-glyphs {
     cursor: pointer;
 }
