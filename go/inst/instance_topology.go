@@ -2813,11 +2813,9 @@ func relocateReplicasInternal(replicas [](*Instance), instance, other *Instance)
 
 		return RepointTo(replicas, &other.Key)
 	}
-
 	// GTID
 	gtidErrorsMsg := ""
 	{
-
 		movedReplicas, unmovedReplicas, err, errs := moveReplicasViaGTID(replicas, other, nil)
 
 		if len(movedReplicas) == len(replicas) {
