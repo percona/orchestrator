@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -32,6 +33,7 @@ import (
 	"github.com/openark/golib/log"
 	"github.com/openark/golib/util"
 
+	fqdn "github.com/Showmax/go-fqdn"
 	"github.com/openark/orchestrator/go/agent"
 	"github.com/openark/orchestrator/go/collection"
 	"github.com/openark/orchestrator/go/config"
@@ -114,8 +116,50 @@ type APIResponse struct {
 	Details interface{}
 }
 
+var messagePrefix string
+
 func Respond(r render.Render, apiResponse *APIResponse) {
+	apiResponse.Message = fmt.Sprintf("%+v%+v", messagePrefix, apiResponse.Message)
 	r.JSON(apiResponse.Code.HttpStatus(), apiResponse)
+}
+
+func setupMessagePrefix() {
+	act := config.Config.PrependMessagesWithOrcIdentity
+	if act == "" || act == "none" {
+		return
+	}
+	if act != "FQDN" && act != "hostname" && act != "custom" {
+		log.Warning("PrependMessagesWithOrcIdentity option has unsupported value '%+v'")
+		return
+	}
+
+	var hostname string
+	var err error
+	fallbackActive := false
+
+	if act == "FQDN" {
+		if hostname, err = fqdn.FqdnHostname(); err != nil {
+			log.Warning("Failed to get Orchestrator's FQDN. Falling back to hostname.")
+			hostname = ""
+			fallbackActive = true
+		}
+	}
+	if fallbackActive || act == "hostname" {
+		fallbackActive = false
+		if hostname, err = os.Hostname(); err != nil {
+			log.Warning("Failed to get Orchestrator's FQDN. Falling back to custom prefix (if provided).")
+			hostname = ""
+			fallbackActive = true
+		}
+	}
+	if (fallbackActive || act == "custom") && config.Config.CustomOrcIdentity != "" {
+		hostname = config.Config.CustomOrcIdentity
+	}
+	if hostname != "" {
+		messagePrefix = fmt.Sprintf("Orchestrator %+v says: ", hostname)
+	} else {
+		log.Warning("Prepending messages with Orchestrator identity was requested, but identity cannot be determined. Skipping prefix.")
+	}
 }
 
 type HttpAPI struct {
@@ -3963,4 +4007,6 @@ func (this *HttpAPI) RegisterRequests(m *martini.ClassicMartini) {
 	} else {
 		m.Get(config.Config.StatusEndpoint, this.StatusCheck)
 	}
+
+	setupMessagePrefix()
 }

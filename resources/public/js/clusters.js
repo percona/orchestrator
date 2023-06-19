@@ -61,9 +61,11 @@ $(document).ready(function() {
       }
       analysisEntry.StructureAnalysis = analysisEntry.StructureAnalysis || [];
       analysisEntry.StructureAnalysis.forEach(function(structureAnalysis) {
-        analysisEntry.Analysis = structureAnalysis;
-        analysisEntry.IsStructureAnalysis = true;
-        clustersAnalysisProblems[analysisEntry.ClusterDetails.ClusterName].push(analysisEntry);
+        // We don't need a deep clone. Shallow copy is enough.
+        const analysisEntryClone = {...analysisEntry};
+        analysisEntryClone.Analysis = structureAnalysis;
+        analysisEntryClone.IsStructureAnalysis = true;
+        clustersAnalysisProblems[analysisEntryClone.ClusterDetails.ClusterName].push(analysisEntryClone);
       });
     });
 
@@ -112,18 +114,46 @@ $(document).ready(function() {
         compactClusterUri = appUrl('/web/cluster/alias/' + encodeURIComponent(cluster.ClusterAlias) + '?compact=true');
       }
       if (clustersAnalysisProblems[cluster.ClusterName]) {
-        clustersAnalysisProblems[cluster.ClusterName].forEach(function(analysisEntry) {
-          var analysisLabel = "text-danger";
-          if (analysisEntry.IsStructureAnalysis) {
-            analysisLabel = "text-warning";
-          }
+        var mutedMsg = ""
+        var mutedCnt = 0
+        var warningMsg = ""
+        var warningCnt = 0
+        var dangerMsg = ""
+        var dangerCnt = 0
+
+        clustersAnalysisProblems[cluster.ClusterName].forEach(function(analysisEntry) {          
+          var msg = analysisEntry.Analysis + ': ' + getInstanceTitle(analysisEntry.AnalyzedInstanceKey.Hostname, analysisEntry.AnalyzedInstanceKey.Port)
+
           var hasDowntime = analysisEntry.IsDowntimed || analysisEntry.IsReplicasDowntimed
           if (hasDowntime) {
-            analysisLabel = "text-muted";
+            mutedMsg = mutedMsg.concat(msg, '\n');
+            mutedCnt++;
+          } else if (analysisEntry.IsStructureAnalysis) {
+            warningMsg = warningMsg.concat(msg, '\n');
+            warningCnt++;
+          } else {
+            dangerMsg = dangerMsg.concat(msg, '\n');
+            dangerCnt++;
           }
-          popoverElement.find("h3 .pull-left").prepend('<span class="glyphicon glyphicon-exclamation-sign ' + analysisLabel + '" title="' + analysisEntry.Analysis + ': ' + getInstanceTitle(analysisEntry.AnalyzedInstanceKey.Hostname, analysisEntry.AnalyzedInstanceKey.Port) + '"></span>');
         });
-
+        if (mutedCnt > 0) {
+          if (mutedCnt > 1) {
+            popoverElement.find("h3 .pull-left").prepend('<span class="overlay-counter">' + mutedCnt +' </span>');
+          }
+          popoverElement.find("h3 .pull-left").prepend('<span class="glyphicon glyphicon-exclamation-sign text-muted"' + ' title="' + mutedMsg + '"></span>');          
+        }
+        if (warningCnt > 0) {
+          if (warningCnt > 1) {
+            popoverElement.find("h3 .pull-left").prepend('<span class="overlay-counter">' + warningCnt +' </span>');
+          }
+          popoverElement.find("h3 .pull-left").prepend('<span class="glyphicon glyphicon-exclamation-sign text-warning"' + ' title="' + warningMsg + '"></span>');          
+        }
+        if (dangerCnt > 0) {
+          if (dangerCnt > 1) {
+            popoverElement.find("h3 .pull-left").prepend('<span class="overlay-counter">' + dangerCnt +' </span>');
+          }
+          popoverElement.find("h3 .pull-left").prepend('<span class="glyphicon glyphicon-exclamation-sign text-danger"' + ' title="' + dangerMsg + '"></span>');          
+        }
       }
       popoverElement.find("h3 .pull-right").append('<a href="' + compactClusterUri + '"><span class="glyphicon glyphicon-compressed" title="Compact display"></span></a>');
       if (cluster.HasAutomatedIntermediateMasterRecovery === true) {
