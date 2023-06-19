@@ -2815,6 +2815,7 @@ func relocateReplicasInternal(replicas [](*Instance), instance, other *Instance)
 	}
 
 	// GTID
+	gtidErrorsMsg := ""
 	{
 
 		movedReplicas, unmovedReplicas, err, errs := moveReplicasViaGTID(replicas, other, nil)
@@ -2831,13 +2832,11 @@ func relocateReplicasInternal(replicas [](*Instance), instance, other *Instance)
 		if len(errs) > 0 {
 			// There are errors, maybe more than one. Let's concatenate them
 			// so they can be reported correctly in the UI
-			allErrors := "Error(s): "
+			gtidErrorsMsg = "Error(s): "
 
 			for _, err := range errs {
-				allErrors = fmt.Sprintf("%s; %v",allErrors,err)
+				gtidErrorsMsg = fmt.Sprintf("%s; %v",gtidErrorsMsg,err)
 			}
-
-			return movedReplicas, log.Errorf("Relocating %+v replicas of %+v below %+v failed %s", len(replicas), instance.Key, other.Key, allErrors), errs
 
 		}
 		// Otherwise nothing was moved via GTID. Maybe we don't have any GTIDs, we continue.
@@ -2863,7 +2862,7 @@ func relocateReplicasInternal(replicas [](*Instance), instance, other *Instance)
 	}
 
 	// Too complex
-	return nil, log.Errorf("Relocating %+v replicas of %+v below %+v turns to be too complex; please do it manually", len(replicas), instance.Key, other.Key), errs
+	return nil, log.Errorf("Relocating %+v replicas of %+v below %+v turns to be too complex; please do it manually. Additional Errors: %v", len(replicas), instance.Key, other.Key,gtidErrorsMsg), errs
 }
 
 // RelocateReplicas will attempt moving replicas of an instance indicated by instanceKey below another instance.
