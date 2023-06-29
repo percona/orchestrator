@@ -2814,7 +2814,7 @@ func relocateReplicasInternal(replicas [](*Instance), instance, other *Instance)
 		return RepointTo(replicas, &other.Key)
 	}
 	// GTID
-	gtidErrorsMsg := ""
+	gtidErrorsMsg := "Additional Errors: "
 	{
 		movedReplicas, unmovedReplicas, err, errs := moveReplicasViaGTID(replicas, other, nil)
 
@@ -2860,7 +2860,11 @@ func relocateReplicasInternal(replicas [](*Instance), instance, other *Instance)
 	}
 
 	// Too complex
-	return nil, log.Errorf("Relocating %+v replicas of %+v below %+v turns to be too complex; please do it manually. Additional Errors: %v", len(replicas), instance.Key, other.Key,gtidErrorsMsg), errs
+	// if the len of gtidErrorsMsg is less than 21, no errors were added
+	if len(gtidErrorsMsg) < 21 {
+		gtidErrorsMsg = ""
+	}
+	return nil, log.Errorf("Relocating %+v replicas of %+v below %+v turns to be too complex; please do it manually. %v", len(replicas), instance.Key, other.Key, gtidErrorsMsg), errs
 }
 
 // RelocateReplicas will attempt moving replicas of an instance indicated by instanceKey below another instance.
