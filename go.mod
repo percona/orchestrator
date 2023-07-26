@@ -3,6 +3,7 @@ module github.com/openark/orchestrator
 go 1.16
 
 require (
+	github.com/Showmax/go-fqdn v1.0.0 // indirect
 	github.com/armon/consul-api v0.0.0-20180202201655-eb2c6b5be1b6
 	github.com/codegangsta/inject v0.0.0-20150114235600-33e0aa1cb7c0 // indirect
 	github.com/cyberdelia/go-metrics-graphite v0.0.0-20161219230853-39f87cc3b432
@@ -47,6 +48,7 @@ require (
 
 replace (
 	github.com/hashicorp/raft => github.com/openark/raft v0.0.0-20170918052300-fba9f909f7fe
+	github.com/openark/golib => ./go/golib
 	golang.org/x/text v0.3.0 => golang.org/x/text v0.3.8
 	golang.org/x/text v0.3.7 => golang.org/x/text v0.3.8
 )

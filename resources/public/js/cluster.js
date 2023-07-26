@@ -1633,6 +1633,15 @@ function Cluster() {
     }
   }
 
+  function showInstanceTags(instance) {
+    if (instance.hasOwnProperty('tagStrings') && instance.tagStrings.length) {
+      var tagsText = "";
+      instance.tagStrings.forEach(function(tag){
+        tagsText = tagsText.concat(tag, '&#10;');
+      });
+      getInstanceDiv(instance.id).find("h3 div.pull-right").prepend('<span class="glyphicon glyphicon-tags" title="' + tagsText +'"></span> ');
+    }
+  }
 
   function indicateClusterPoolInstances(clusterPoolInstances) {
     var instancesMap = _instancesMap;
@@ -1673,10 +1682,19 @@ function Cluster() {
 
     reviewReplicationAnalysis(replicationAnalysis);
 
+    // Tags are displayed only for not aggregated instances
+    for (var instanceId in _instancesMap) {
+      let instance = _instancesMap[instanceId];
+      getData("/api/tags/" + instance.Key.Hostname + "/" + instance.Key.Port, function(tagStrings) {
+        instance.tagStrings = tagStrings;
+        showInstanceTags(instance)
+      });
+    }
+
     instances.forEach(function(instance) {
       if (instance.isMaster) {
         getData("/api/recently-active-instance-recovery/" + instance.Key.Hostname + "/" + instance.Key.Port, function(recoveries) {
-          if (!recoveries) {
+          if (!recoveries || !recoveries.length) {
             return
           }
           // Result is an array: either empty (no active recovery) or with multiple entries
@@ -1767,7 +1785,7 @@ function Cluster() {
       });
     });
     getData("/api/recently-active-cluster-recovery/" + currentClusterName(), function(recoveries) {
-      if (!recoveries) {
+      if (!recoveries || !recoveries.length) {
         return
       }
       // Result is an array: either empty (no active recovery) or with multiple entries

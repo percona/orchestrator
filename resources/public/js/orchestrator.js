@@ -385,6 +385,14 @@ function openNodeModal(node) {
   addNodeModalDataAttribute("Agent",
     '<a href="' + appUrl('/web/agent/' + node.Key.Hostname) + '">' + node.Key.Hostname + '</a>');
 
+  var tagsText = "";
+  if (node.hasOwnProperty('tagStrings') && node.tagStrings.length) {
+    node.tagStrings.forEach(function(tag){
+      tagsText = tagsText.concat(tag, '<br>');
+    });
+  }
+  addNodeModalDataAttribute("Tags", tagsText);
+
   $('#node_modal [data-btn]').unbind("click");
 
   $("#beginDowntimeOwner").val(getUserId());

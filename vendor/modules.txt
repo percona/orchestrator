@@ -1,3 +1,6 @@
+# github.com/Showmax/go-fqdn v1.0.0
+## explicit
+github.com/Showmax/go-fqdn
 # github.com/armon/consul-api v0.0.0-20180202201655-eb2c6b5be1b6
 ## explicit
 github.com/armon/consul-api
@@ -82,7 +85,7 @@ github.com/mitchellh/mapstructure
 # github.com/montanaflynn/stats v0.0.0-20161102194025-f8cd06f93c6c
 ## explicit
 github.com/montanaflynn/stats
-# github.com/openark/golib v0.0.0-20210520103621-827f3ea62180
+# github.com/openark/golib v0.0.0-20210520103621-827f3ea62180 => ./go/golib
 ## explicit
 github.com/openark/golib/log
 github.com/openark/golib/math
@@ -135,5 +138,6 @@ gopkg.in/gcfg.v1/types
 ## explicit
 gopkg.in/warnings.v0
 # github.com/hashicorp/raft => github.com/openark/raft v0.0.0-20170918052300-fba9f909f7fe
+# github.com/openark/golib => ./go/golib
 # golang.org/x/text v0.3.0 => golang.org/x/text v0.3.8
 # golang.org/x/text v0.3.7 => golang.org/x/text v0.3.8
