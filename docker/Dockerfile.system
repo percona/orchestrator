@@ -8,7 +8,7 @@ RUN echo "ci_env_repo: $ci_env_repo"
 RUN echo "ci_env_branch: $ci_env_branch"
 
 RUN apt-get update -q -y
-RUN apt-get install -y sudo haproxy python git jq rsync libaio1 libnuma1 default-mysql-client bsdmainutils less vim
+RUN apt-get install -y sudo haproxy python git jq rsync libaio1 libnuma1 default-mysql-client bsdmainutils less vim libncurses5
 
 RUN mkdir /orchestrator
 WORKDIR /orchestrator
