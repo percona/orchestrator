@@ -18,7 +18,7 @@ github.com/fatih/color
 # github.com/go-martini/martini v0.0.0-20170121215854-22fa46961aab
 ## explicit
 github.com/go-martini/martini
-# github.com/go-sql-driver/mysql v1.6.0
+# github.com/go-sql-driver/mysql v1.7.1
 ## explicit
 github.com/go-sql-driver/mysql
 # github.com/google/btree v1.0.0
