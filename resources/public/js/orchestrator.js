@@ -973,6 +973,18 @@ function renderInstanceElement(popoverElement, instance, renderType) {
       popoverElement.find("h3 div.pull-right").prepend('<span class="glyphicon glyphicon-volume-off" title="' + downtimeMessage + '"></span> ');
     }
 
+    $.get(appUrl("/api/tags/" + instance.Key.Hostname + "/" + instance.Key.Port), function(tagStrings) {
+      if (tagStrings.length) {
+        // Need to remember this. It is used in instance's modal window.
+        instance.tagStrings = tagStrings;
+        var tagsText = "";
+        instance.tagStrings.forEach(function(tag) {
+          tagsText = tagsText.concat(tag, '&#10;');
+        });
+        popoverElement.find("h3 div.pull-right").prepend('<span class="glyphicon glyphicon-tags" title="' + tagsText +'"></span> ');
+      }
+    }, "json");
+
     if (instance.lastCheckInvalidProblem()) {
       instance.renderHint = "fatal";
       indicateLastSeenInStatus = true;

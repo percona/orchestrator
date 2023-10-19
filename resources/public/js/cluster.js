@@ -1546,25 +1546,27 @@ function Cluster() {
       recoveryListing.append('<li role="separator" class="divider"></li>');
 
       // Suggest successor
-      instance.children.forEach(function(replica) {
-        if (!replica.LogBinEnabled) {
-          return
-        }
-        if (replica.SQLDelay > 0) {
-          return
-        }
-        if (!replica.LogReplicationUpdatesEnabled) {
-          return
-        }
-        if (replica.lastCheckInvalidProblem()) {
-          return
-        }
-        if (replica.notRecentlyCheckedProblem()) {
-          return
-        }
-        recoveryListing.append(
-          '<li><a href="#" data-btn="recover-suggested-successor" data-command="recover-suggested-successor" data-successor-host="' + replica.Key.Hostname + '" data-successor-port="' + replica.Key.Port + '">Recover, try to promote <code>' + replica.title + '</code></a></li>');
-      });
+      if (instance.children) {
+        instance.children.forEach(function(replica) {
+          if (!replica.LogBinEnabled) {
+            return
+          }
+          if (replica.SQLDelay > 0) {
+            return
+          }
+          if (!replica.LogReplicationUpdatesEnabled) {
+            return
+          }
+          if (replica.lastCheckInvalidProblem()) {
+            return
+          }
+          if (replica.notRecentlyCheckedProblem()) {
+            return
+          }
+          recoveryListing.append(
+            '<li><a href="#" data-btn="recover-suggested-successor" data-command="recover-suggested-successor" data-successor-host="' + replica.Key.Hostname + '" data-successor-port="' + replica.Key.Port + '">Recover, try to promote <code>' + replica.title + '</code></a></li>');
+        });
+      }
     }
     if (!instance.isMaster) {
       recoveryListing.append('<li><a href="#" data-btn="auto" data-command="recover-auto">Auto (implies running external hooks/processes)</a></li>');
@@ -1633,16 +1635,6 @@ function Cluster() {
     }
   }
 
-  function showInstanceTags(instance) {
-    if (instance.hasOwnProperty('tagStrings') && instance.tagStrings.length) {
-      var tagsText = "";
-      instance.tagStrings.forEach(function(tag){
-        tagsText = tagsText.concat(tag, '&#10;');
-      });
-      getInstanceDiv(instance.id).find("h3 div.pull-right").prepend('<span class="glyphicon glyphicon-tags" title="' + tagsText +'"></span> ');
-    }
-  }
-
   function indicateClusterPoolInstances(clusterPoolInstances) {
     var instancesMap = _instancesMap;
     for (var pool in clusterPoolInstances.Details) {
@@ -1681,15 +1673,6 @@ function Cluster() {
     //prepareDraggable();
 
     reviewReplicationAnalysis(replicationAnalysis);
-
-    // Tags are displayed only for not aggregated instances
-    for (var instanceId in _instancesMap) {
-      let instance = _instancesMap[instanceId];
-      getData("/api/tags/" + instance.Key.Hostname + "/" + instance.Key.Port, function(tagStrings) {
-        instance.tagStrings = tagStrings;
-        showInstanceTags(instance)
-      });
-    }
 
     instances.forEach(function(instance) {
       if (instance.isMaster) {
