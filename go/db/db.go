@@ -72,7 +72,7 @@ func getMySQLURI() string {
 		mysqlURI, _ = SetupMySQLOrchestratorTLS(mysqlURI)
 	}
 	if config.Config.MySQLOrchestratorMaxAllowedPacket >= 0 {
-		mysqlURI = fmt.Sprintf("%s&maxAllowedPacket=%d",mysqlURI,config.Config.MySQLOrchestratorMaxAllowedPacket)
+		mysqlURI = fmt.Sprintf("%s&maxAllowedPacket=%d", mysqlURI, config.Config.MySQLOrchestratorMaxAllowedPacket)
 	}
 	return mysqlURI
 }
@@ -99,7 +99,7 @@ func openTopology(host string, port int, readTimeout int) (db *sql.DB, err error
 	)
 
 	if config.Config.MySQLTopologyMaxAllowedPacket >= 0 {
-		mysqlURI = fmt.Sprintf("%s&maxAllowedPacket=%d",mysqlURI,config.Config.MySQLTopologyMaxAllowedPacket)
+		mysqlURI = fmt.Sprintf("%s&maxAllowedPacket=%d", mysqlURI, config.Config.MySQLTopologyMaxAllowedPacket)
 	}
 	if config.Config.MySQLTopologyUseMutualTLS ||
 		(config.Config.MySQLTopologyUseMixedTLS && requiresTLS(host, port, mysql_uri)) {
