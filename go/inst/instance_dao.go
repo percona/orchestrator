@@ -706,12 +706,13 @@ func ReadTopologyInstanceBufferable(instanceKey *InstanceKey, bufferWrites bool,
 	if err != nil {
 		goto Cleanup
 	}
-	// Populate GR information for the instance in Oracle MySQL 8.0+. To do this we need to wait for the Server UUID to
-	// be populated to be able to find this instance's information in performance_schema.replication_group_members by
-	// comparing UUIDs. We could instead resolve the MEMBER_HOST and MEMBER_PORT columns into an InstanceKey and compare
-	// those instead, but this could require external calls for name resolving, whereas comparing UUIDs does not.
+	// Populate GR information for the instance in Oracle MySQL 8.0+ or Percona Server 8.0+. To do this we need to wait
+	// for the Server UUID to be populated to be able to find this instance's information in
+	// performance_schema.replication_group_members by comparing UUIDs. We could instead resolve the MEMBER_HOST and
+	// MEMBER_PORT columns into an InstanceKey and compare those instead, but this could require external calls for
+	// name resolving, whereas comparing UUIDs does not.
 	serverUuidWaitGroup.Wait()
-	if instance.IsOracleMySQL() && !instance.IsSmallerMajorVersionByString("8.0") {
+	if (instance.IsOracleMySQL() || instance.IsPercona()) && !instance.IsSmallerMajorVersionByString("8.0") {
 		err := PopulateGroupReplicationInformation(instance, db)
 		if err != nil {
 			goto Cleanup
