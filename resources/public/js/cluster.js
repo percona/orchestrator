@@ -1546,25 +1546,27 @@ function Cluster() {
       recoveryListing.append('<li role="separator" class="divider"></li>');
 
       // Suggest successor
-      instance.children.forEach(function(replica) {
-        if (!replica.LogBinEnabled) {
-          return
-        }
-        if (replica.SQLDelay > 0) {
-          return
-        }
-        if (!replica.LogReplicationUpdatesEnabled) {
-          return
-        }
-        if (replica.lastCheckInvalidProblem()) {
-          return
-        }
-        if (replica.notRecentlyCheckedProblem()) {
-          return
-        }
-        recoveryListing.append(
-          '<li><a href="#" data-btn="recover-suggested-successor" data-command="recover-suggested-successor" data-successor-host="' + replica.Key.Hostname + '" data-successor-port="' + replica.Key.Port + '">Recover, try to promote <code>' + replica.title + '</code></a></li>');
-      });
+      if (instance.children) {
+        instance.children.forEach(function(replica) {
+          if (!replica.LogBinEnabled) {
+            return
+          }
+          if (replica.SQLDelay > 0) {
+            return
+          }
+          if (!replica.LogReplicationUpdatesEnabled) {
+            return
+          }
+          if (replica.lastCheckInvalidProblem()) {
+            return
+          }
+          if (replica.notRecentlyCheckedProblem()) {
+            return
+          }
+          recoveryListing.append(
+            '<li><a href="#" data-btn="recover-suggested-successor" data-command="recover-suggested-successor" data-successor-host="' + replica.Key.Hostname + '" data-successor-port="' + replica.Key.Port + '">Recover, try to promote <code>' + replica.title + '</code></a></li>');
+        });
+      }
     }
     if (!instance.isMaster) {
       recoveryListing.append('<li><a href="#" data-btn="auto" data-command="recover-auto">Auto (implies running external hooks/processes)</a></li>');
@@ -1633,7 +1635,6 @@ function Cluster() {
     }
   }
 
-
   function indicateClusterPoolInstances(clusterPoolInstances) {
     var instancesMap = _instancesMap;
     for (var pool in clusterPoolInstances.Details) {
@@ -1676,7 +1677,7 @@ function Cluster() {
     instances.forEach(function(instance) {
       if (instance.isMaster) {
         getData("/api/recently-active-instance-recovery/" + instance.Key.Hostname + "/" + instance.Key.Port, function(recoveries) {
-          if (!recoveries) {
+          if (!recoveries || !recoveries.length) {
             return
           }
           // Result is an array: either empty (no active recovery) or with multiple entries
@@ -1767,7 +1768,7 @@ function Cluster() {
       });
     });
     getData("/api/recently-active-cluster-recovery/" + currentClusterName(), function(recoveries) {
-      if (!recoveries) {
+      if (!recoveries || !recoveries.length) {
         return
       }
       // Result is an array: either empty (no active recovery) or with multiple entries
