@@ -2814,7 +2814,7 @@ func relocateReplicasInternal(replicas [](*Instance), instance, other *Instance)
 		return RepointTo(replicas, &other.Key)
 	}
 	// GTID
-	gtidErrorsMsg := "Additional Errors: "
+	gtidErrorsMsg := ""
 	{
 		movedReplicas, unmovedReplicas, err, errs := moveReplicasViaGTID(replicas, other, nil)
 
@@ -2826,14 +2826,14 @@ func relocateReplicasInternal(replicas [](*Instance), instance, other *Instance)
 			return relocateReplicasInternal(unmovedReplicas, instance, other)
 		}
 
-		// Making sure that if there are any errors in errs, they are reported 
+		// Making sure that if there are any errors in errs, they are reported
 		if len(errs) > 0 {
 			// There are errors, maybe more than one. Let's concatenate them
 			// so they can be reported correctly in the UI
 			gtidErrorsMsg = "Error(s): "
 
 			for _, err := range errs {
-				gtidErrorsMsg = fmt.Sprintf("%s; %v",gtidErrorsMsg,err)
+				gtidErrorsMsg = fmt.Sprintf("%s; %v", gtidErrorsMsg, err)
 			}
 
 		}
@@ -2861,8 +2861,8 @@ func relocateReplicasInternal(replicas [](*Instance), instance, other *Instance)
 
 	// Too complex
 	// if the len of gtidErrorsMsg is less than 21, no errors were added
-	if len(gtidErrorsMsg) < 21 {
-		gtidErrorsMsg = ""
+	if len(gtidErrorsMsg) > 0 {
+		gtidErrorsMsg = "Additional Errors: " + gtidErrorsMsg
 	}
 	return nil, log.Errorf("Relocating %+v replicas of %+v below %+v turns to be too complex; please do it manually. %v", len(replicas), instance.Key, other.Key, gtidErrorsMsg), errs
 }
