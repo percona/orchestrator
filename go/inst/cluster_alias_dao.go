@@ -114,6 +114,86 @@ func writeClusterAliasManualOverride(clusterName string, alias string) error {
 	return ExecDBWriteFunc(writeFunc)
 }
 
+// Original, safe approach, which uses REPLACE INTO
+func updateClusterAliasesUsingReplace() error {
+	_, err := db.ExecOrchestrator(`
+	replace into
+			cluster_alias (alias, cluster_name, last_registered)
+		select
+			suggested_cluster_alias,
+				cluster_name,
+				now()
+			from
+			database_instance
+			left join database_instance_downtime using (hostname, port)
+		  where
+			suggested_cluster_alias!=''
+				/* exclude newly demoted, downtimed masters */
+				and ifnull(
+						database_instance_downtime.downtime_active = 1
+						and database_instance_downtime.end_timestamp > now()
+						and database_instance_downtime.reason = ?
+					, 0) = 0
+			order by
+				ifnull(last_checked <= last_seen, 0) asc,
+				read_only desc,
+				num_slave_hosts asc
+	`, DowntimeLostInRecoveryMessage)
+
+	return err
+}
+
+// Optimized approach using INSERT INTO ... ON DUPLICATE KEY UPDATE
+// While this approach is much faster and works in most cases, it is not
+// guaranteed to be working in every case.
+// cluster_alias table has two unique indexes:
+// 1. primary on cluster_name column
+// 2. alias_uidx on alias colum
+//
+// The data which is going to be inserted originates from database_instance
+// table, in particular the following columns:
+// 1. `cluster_name` varchar(128) NOT NULL
+// 2. `suggested_cluster_alias` varchar(128) CHARACTER SET ascii COLLATE
+//	   ascii_general_ci NOT NULL
+//
+// So it is possible to end up in the following situation when we use this
+// approach:
+// create table t1 (a int primary key, b int, unique key (b));
+// insert into t1 values (0, 1);
+// insert into t1 values (1, 2);
+// insert into t1 values (0, 2) on duplicate key update a=0, b=2;
+// ERROR 1062 (23000): Duplicate entry '2' for key 't1.b'
+func updateClusterAliasesUsingInsert() error {
+	_, err := db.ExecOrchestrator(`
+	INSERT INTO cluster_alias
+	(
+		alias,
+		cluster_name,
+		last_registered
+	)
+	SELECT    di.suggested_cluster_alias,
+		  di.cluster_name,
+		  now()
+	FROM      database_instance di
+	LEFT JOIN database_instance_downtime did
+	USING     (hostname, port)
+	WHERE     di.suggested_cluster_alias != ''
+	/* exclude newly demoted, downtimed masters */
+	AND       Ifnull(did.downtime_active = 1
+		  AND did.end_timestamp > Now()
+		  AND did.reason = ?, 0) = 0
+	ORDER BY  Ifnull(di.last_checked <= di.last_seen, 0) ASC,
+		  di.read_only DESC,
+		  di.num_slave_hosts ASC
+	ON DUPLICATE KEY
+	UPDATE alias = di.suggested_cluster_alias,
+	cluster_name = di.cluster_name,
+	last_registered = now()
+	`, DowntimeLostInRecoveryMessage)
+
+	return err
+}
+
 // UpdateClusterAliases writes down the cluster_alias table based on information
 // gained from database_instance
 func UpdateClusterAliases() error {
@@ -121,58 +201,15 @@ func UpdateClusterAliases() error {
 		var err error
 		if IsSQLite() {
 			// Sql lite backend
-			_, err = db.ExecOrchestrator(`
-				replace into
-						cluster_alias (alias, cluster_name, last_registered)
-					select
-					    suggested_cluster_alias,
-							cluster_name,
-							now()
-						from
-					    database_instance
-					    left join database_instance_downtime using (hostname, port)
-					  where
-					    suggested_cluster_alias!=''
-							/* exclude newly demoted, downtimed masters */
-							and ifnull(
-									database_instance_downtime.downtime_active = 1
-									and database_instance_downtime.end_timestamp > now()
-									and database_instance_downtime.reason = ?
-								, 0) = 0
-						order by
-							ifnull(last_checked <= last_seen, 0) asc,
-							read_only desc,
-							num_slave_hosts asc
-				`, DowntimeLostInRecoveryMessage)
+			err = updateClusterAliasesUsingReplace()
 		} else {
 			// MySQL backend (Orchestrator supports only SQLite and MySQL backends)
 			// INSERT ON DUPLICATE KEY UPDATE is more performant than REPLACE in MySQL
-			_, err = db.ExecOrchestrator(`
-				INSERT INTO cluster_alias
-				(
-					alias,
-					cluster_name,
-					last_registered
-				)
-				SELECT    di.suggested_cluster_alias,
-					  di.cluster_name,
-					  now()
-				FROM      database_instance di
-				LEFT JOIN database_instance_downtime did
-				USING     (hostname, port)
-				WHERE     di.suggested_cluster_alias != ''
-				/* exclude newly demoted, downtimed masters */
-				AND       Ifnull(did.downtime_active = 1
-				AND       did.end_timestamp > Now()
-				AND       did.reason = ?, 0) = 0
-				ORDER BY  Ifnull(di.last_checked <= di.last_seen, 0) ASC,
-					  di.read_only DESC,
-					  di.num_slave_hosts ASC
-				ON DUPLICATE KEY
-				UPDATE alias = di.suggested_cluster_alias,
-				cluster_name = di.cluster_name,
-				last_registered = now()
-				`, DowntimeLostInRecoveryMessage)
+			err = updateClusterAliasesUsingInsert()
+			if (err != nil) {
+				// Fallback to the original, safe implementation
+				err = updateClusterAliasesUsingReplace()
+			}
 		}
 		return log.Errore(err)
 	}
