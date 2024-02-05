@@ -103,6 +103,7 @@ type Configuration struct {
 	MySQLTopologySSLSkipVerify                 bool   // If true, do not strictly validate mutual TLS certs for Topology mysql instances
 	MySQLTopologyUseMutualTLS                  bool   // Turn on TLS authentication with the Topology MySQL instances
 	MySQLTopologyUseMixedTLS                   bool   // Mixed TLS and non-TLS authentication with the Topology MySQL instances
+	MySQLTopologyMaxAllowedPacket              int32  // max_allowed_packet value to use when connecting to the Topology mysql instance
 	TLSCacheTTLFactor                          uint   // Factor of InstancePollSeconds that we set as TLS info cache expiry
 	BackendDB                                  string // EXPERIMENTAL: type of backend db; either "mysql" or "sqlite3"
 	SQLite3DataFile                            string // when BackendDB == "sqlite3", full path to sqlite3 datafile
@@ -129,6 +130,7 @@ type Configuration struct {
 	MySQLOrchestratorUseMutualTLS              bool     // Turn on TLS authentication with the Orchestrator MySQL instance
 	MySQLOrchestratorReadTimeoutSeconds        int      // Number of seconds before backend mysql read operation is aborted (driver-side)
 	MySQLOrchestratorRejectReadOnly            bool     // Reject read only connections https://github.com/go-sql-driver/mysql#rejectreadonly
+	MySQLOrchestratorMaxAllowedPacket          int32    // max_allowed_packet to use when connecting to the Orchestrator mysql instance
 	MySQLConnectTimeoutSeconds                 int      // Number of seconds before connection is aborted (driver-side)
 	MySQLDiscoveryReadTimeoutSeconds           int      // Number of seconds before topology mysql read operation is aborted (driver-side). Used for discovery queries.
 	MySQLTopologyReadTimeoutSeconds            int      // Number of seconds before topology mysql read operation is aborted (driver-side). Used for all but discovery queries.
@@ -316,10 +318,12 @@ func newConfiguration() *Configuration {
 		MySQLOrchestratorPort:                      3306,
 		MySQLTopologyUseMutualTLS:                  false,
 		MySQLTopologyUseMixedTLS:                   true,
+		MySQLTopologyMaxAllowedPacket:              -1,
 		MySQLOrchestratorUseMutualTLS:              false,
 		MySQLConnectTimeoutSeconds:                 2,
 		MySQLOrchestratorReadTimeoutSeconds:        30,
 		MySQLOrchestratorRejectReadOnly:            false,
+		MySQLOrchestratorMaxAllowedPacket:          -1,
 		MySQLDiscoveryReadTimeoutSeconds:           10,
 		MySQLTopologyReadTimeoutSeconds:            600,
 		MySQLConnectionLifetimeSeconds:             0,
