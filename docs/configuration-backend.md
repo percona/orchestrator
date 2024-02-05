@@ -52,6 +52,23 @@ CREATE USER 'orchestrator_srv'@'orc_host' IDENTIFIED BY 'orc_server_password';
 GRANT ALL ON orchestrator.* TO 'orchestrator_srv'@'orc_host';
 ```
 
+#### Configuring max_allowed_packet size sent by Orchestrator
+When Orchestrator communicates with backend MySQL instance or with managed
+instances, it has to respect the instance's `max_allowed_packet` parameter
+value. The following two options allow configuring this area:
+
+```
+MySQLOrchestratorMaxAllowedPacket
+MySQLTopologyMaxAllowedPacket
+```
+Allowed values are:
+
+`-1` - use the value hardcoded in the driver
+
+`0` - let the driver to query the max packet value automatically from the server (only once per connection at the connection begin)
+
+`> 0` - use the value provided
+
 ## SQLite backend
 
 Default backend is `MySQL`. To setup `SQLite`, use:
