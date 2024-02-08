@@ -374,6 +374,39 @@ func (this *Instance) UsingGTID() bool {
 	return this.UsingOracleGTID || this.UsingMariaDBGTID
 }
 
+// getExecutedGTIDsFromMaster returns the executed (Oracle) GTID based current master-uuid value from slave status
+/* 
+                  Master_UUID: 72dbb469-82d1-11ee-b9bc-0202ac181657
+             Master_Info_File: mysql.slave_master_info
+                    SQL_Delay: 0
+          SQL_Remaining_Delay: NULL
+      Slave_SQL_Running_State: Replica has read all relay log; waiting for more updates
+           Master_Retry_Count: 86400
+                  Master_Bind: 
+      Last_IO_Error_Timestamp: 
+     Last_SQL_Error_Timestamp: 
+               Master_SSL_Crl: 
+           Master_SSL_Crlpath: 
+           Retrieved_Gtid_Set: 5e2fa204-eedc-11ed-9cf0-0202ac18180a:23038810-23654750,
+72dbb469-82d1-11ee-b9bc-0202ac181657:1-3595545
+            Executed_Gtid_Set: 5e2fa204-eedc-11ed-9cf0-0202ac18180a:1-23654750,
+72dbb469-82d1-11ee-b9bc-0202ac181657:1-3595545,
+76dabae4-eedd-11ed-8a9b-0202ac18187d:1,
+f7ad2759-82c9-11ee-bc83-0202ac181657:1
+                Auto_Position: 1
+
+  getExecutedGTIDsFromMaster will return 72dbb469-82d1-11ee-b9bc-0202ac181657:1-3595545 
+*/
+func (this *Instance) getExecutedGTIDsFromMaster() string {
+	GTIDSet := strings.Split(this.ExecutedGtidSet,",")
+	for _, GTID := range GTIDSet{
+		if strings.Contains(GTID,this.MasterUUID){
+			return GTID
+		}
+	}
+	return ""
+}
+
 // NextGTID returns the next (Oracle) GTID to be executed. Useful for skipping queries
 func (this *Instance) NextGTID() (string, error) {
 	if this.ExecutedGtidSet == "" {
@@ -389,7 +422,7 @@ func (this *Instance) NextGTID() (string, error) {
 		return tokens[len(tokens)-1]
 	}
 	// executed GTID set: 4f6d62ed-df65-11e3-b395-60672090eb04:1,b9b4712a-df64-11e3-b391-60672090eb04:1-6
-	executedGTIDsFromMaster := lastToken(this.ExecutedGtidSet, ",")
+	executedGTIDsFromMaster := this.getExecutedGTIDsFromMaster()
 	// executedGTIDsFromMaster: b9b4712a-df64-11e3-b391-60672090eb04:1-6
 	executedRange := lastToken(executedGTIDsFromMaster, ":")
 	// executedRange: 1-6
