@@ -385,13 +385,16 @@ function openNodeModal(node) {
   addNodeModalDataAttribute("Agent",
     '<a href="' + appUrl('/web/agent/' + node.Key.Hostname) + '">' + node.Key.Hostname + '</a>');
 
-  var tagsText = "";
-  if (node.hasOwnProperty('tagStrings') && node.tagStrings.length) {
-    node.tagStrings.forEach(function(tag){
-      tagsText = tagsText.concat(tag, '<br>');
-    });
-  }
-  addNodeModalDataAttribute("Tags", tagsText);
+  $.get(appUrl("/api/tags/" + node.Key.Hostname + "/" + node.Key.Port), function(tagStrings) {
+    var tagsText = "";
+    if (tagStrings.length) {
+      tagStrings.forEach(function(tag){
+        tagsText = tagsText.concat(tag, '<br>');
+      })
+      addNodeModalDataAttribute("Tags", tagsText);
+    }
+  }, "json");
+
 
   $('#node_modal [data-btn]').unbind("click");
 
@@ -975,10 +978,8 @@ function renderInstanceElement(popoverElement, instance, renderType) {
 
     $.get(appUrl("/api/tags/" + instance.Key.Hostname + "/" + instance.Key.Port), function(tagStrings) {
       if (tagStrings.length) {
-        // Need to remember this. It is used in instance's modal window.
-        instance.tagStrings = tagStrings;
         var tagsText = "";
-        instance.tagStrings.forEach(function(tag) {
+        tagStrings.forEach(function(tag) {
           tagsText = tagsText.concat(tag, '&#10;');
         });
         popoverElement.find("h3 div.pull-right").prepend('<span class="glyphicon glyphicon-tags" title="' + tagsText +'"></span> ');
