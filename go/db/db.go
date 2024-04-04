@@ -131,7 +131,7 @@ func openOrchestratorMySQLGeneric() (db *sql.DB, fromCache bool, err error) {
 	if config.Config.MySQLOrchestratorUseMutualTLS {
 		uri, _ = SetupMySQLOrchestratorTLS(uri)
 	}
-	sqlUtilsLogger := SqlUtilsLogger{client_context: config.Config.MySQLOrchestratorHost + ":" + config.Config.MySQLOrchestratorHost}
+	sqlUtilsLogger := SqlUtilsLogger{client_context: config.Config.MySQLOrchestratorHost + ":" + strconv.FormatUint(uint64(config.Config.MySQLOrchestratorPort), 10)}
 	return sqlutils.GetDB(uri, sqlUtilsLogger)
 }
 
@@ -200,7 +200,7 @@ func OpenOrchestrator() (db *sql.DB, err error) {
 			}
 		}
 		dsn := getMySQLURI()
-		sqlUtilsLogger := SqlUtilsLogger{client_context: dsn}
+		sqlUtilsLogger := SqlUtilsLogger{client_context: config.Config.MySQLOrchestratorHost + ":" + strconv.FormatUint(uint64(config.Config.MySQLOrchestratorPort), 10)}
 		db, fromCache, err = sqlutils.GetDB(dsn, sqlUtilsLogger)
 		if err == nil && !fromCache {
 			log.Debugf("Connected to orchestrator backend: %v", safeMySQLURI(dsn))
