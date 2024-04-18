@@ -27,7 +27,9 @@ function discover(hostname, port) {
             addInfo('Discovered <a href="' + appUrl('/web/search?s='+instance.Key.Hostname+":"+instance.Key.Port) + '" class="alert-link">'
             		+instance.Key.Hostname+":"+instance.Key.Port+'</a>'
             	);
-        }   
-    }, "json"); 
-	
+        }
+    }, "json").fail(function (operationResult) {
+        hideLoader();
+        addAlert(operationResult.responseJSON.Message)
+    });
 }

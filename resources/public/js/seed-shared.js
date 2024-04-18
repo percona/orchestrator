@@ -50,7 +50,10 @@ $("body").on("click", "button[data-command=abort-seed]", function(event) {
 				} else {
 					location.reload();
 				}	
-	        }, "json");
+	        }, "json").fail(function (operationResult) {
+				hideLoader();
+				addAlert(operationResult.responseJSON.Message)
+			  });
 		}
 	});
 });

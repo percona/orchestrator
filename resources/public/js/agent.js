@@ -177,7 +177,10 @@ $(document).ready(function() {
       } else {
         location.reload();
       }
-    }, "json");
+    }, "json").fail(function (operationResult) {
+      hideLoader();
+      addAlert(operationResult.responseJSON.Message)
+    });
   });
   $("body").on("click", "button[data-command=mountlv]", function(event) {
     var lv = $(event.target).attr("data-lv")
@@ -189,7 +192,10 @@ $(document).ready(function() {
       } else {
         location.reload();
       }
-    }, "json");
+    }, "json").fail(function (operationResult) {
+      hideLoader();
+      addAlert(operationResult.responseJSON.Message)
+    });
   });
   $("body").on("click", "button[data-command=removelv]", function(event) {
     var lv = $(event.target).attr("data-lv")
@@ -204,7 +210,10 @@ $(document).ready(function() {
           } else {
             location.reload();
           }
-        }, "json");
+        }, "json").fail(function (operationResult) {
+          hideLoader();
+          addAlert(operationResult.responseJSON.Message)
+        });
       }
     });
   });
@@ -221,7 +230,10 @@ $(document).ready(function() {
           } else {
             location.reload();
           }
-        }, "json");
+        }, "json").fail(function (operationResult) {
+          hideLoader();
+          addAlert(operationResult.responseJSON.Message)
+        });
       }
     });
   });
@@ -238,7 +250,10 @@ $(document).ready(function() {
           } else {
             location.reload();
           }
-        }, "json");
+        }, "json").fail(function (operationResult) {
+          hideLoader();
+          addAlert(operationResult.responseJSON.Message)
+        });
       }
     });
   });
@@ -251,7 +266,10 @@ $(document).ready(function() {
       } else {
         location.reload();
       }
-    }, "json");
+    }, "json").fail(function (operationResult) {
+      hideLoader();
+      addAlert(operationResult.responseJSON.Message)
+    });
   });
   $("body").on("click", "button[data-command=seed]", function(event) {
     if (hasActiveSeeds) {
@@ -284,7 +302,10 @@ $(document).ready(function() {
           } else {
             location.reload();
           }
-        }, "json");
+        }, "json").fail(function (operationResult) {
+          hideLoader();
+          addAlert(operationResult.responseJSON.Message)
+        });
       }
     });
   });

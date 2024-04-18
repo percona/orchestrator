@@ -717,7 +717,7 @@ func ReadTopologyInstanceBufferable(instanceKey *InstanceKey, bufferWrites bool,
 	// name resolving, whereas comparing UUIDs does not.
 	serverUuidWaitGroup.Wait()
 	if (instance.IsOracleMySQL() || instance.IsPercona()) && !instance.IsSmallerMajorVersionByString("8.0") {
-		err := PopulateGroupReplicationInformation(instance, db)
+		err = PopulateGroupReplicationInformation(instance, db)
 		if err != nil {
 			goto Cleanup
 		}
@@ -3330,7 +3330,7 @@ func PopulateGroupReplicationInformation(instance *Instance, db *sql.DB) error {
 		} else {
 			// If we got here, the query failed but not because the server does not support group replication. Let's
 			// log the error
-			return log.Error("There was an error trying to check group replication information for instance "+
+			return log.Errorf("There was an error trying to check group replication information for instance "+
 				"%+v: %+v", instance.Key, err)
 		}
 	}

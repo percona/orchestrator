@@ -292,7 +292,11 @@ func (this *HttpAPI) Discover(params martini.Params, r render.Render, req *http.
 		logic.DiscoverInstance(instanceKey)
 	}
 
-	Respond(r, &APIResponse{Code: OK, Message: fmt.Sprintf("Instance discovered: %+v", instance.Key), Details: instance})
+	if instance != nil {
+		Respond(r, &APIResponse{Code: OK, Message: fmt.Sprintf("Instance discovered: %+v", instance.Key), Details: instance})
+	} else {
+		Respond(r, &APIResponse{Code: OK, Message: "No instances discovered", Details: nil})
+	}
 }
 
 // Refresh synchronuously re-reads a topology instance
