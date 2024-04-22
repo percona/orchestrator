@@ -49,17 +49,23 @@ case "$command" in
   "pkg")
     packages_path="${2:-/tmp/orchestrator-release}"
     docker_target="orchestrator-packaging"
-    docker build . -f docker/Dockerfile.packaging -t "${docker_target}" && docker run --rm -it -v "${packages_path}:/tmp/pkg" "${docker_target}:latest" bash -c 'find /tmp/orchestrator-release/ -maxdepth 1 -type f | xargs cp -t /tmp/pkg'
+    docker build . --build-arg RELEASE_VERSION=${RELEASE_VERSION} \
+      --build-arg RELEASE_SUBVERSION=${RELEASE_SUBVERSION} \
+      -f docker/Dockerfile.packaging \
+      -t "${docker_target}" \
+      && docker run --rm -it -v "${packages_path}:/tmp/pkg" "${docker_target}:latest" \
+        bash -c 'find /tmp/orchestrator-release/ -maxdepth 1 -type f \
+      | xargs cp -t /tmp/pkg'
     echo "packages generated on ${packages_path}:"
     ls -l "${packages_path}"
     ;;
   "system")
     docker_target="orchestrator-system"
-    docker build . -f docker/Dockerfile.system -t "${docker_target}" --build-arg ci_env_repo=${CI_ENV_REPO_ENV} --build-arg ci_env_branch=${CI_ENV_BRANCH_ENV} && docker run --rm -it -p 3000:3000 --env TARBALL_URL=${TARBALL_URL} --env RUN_TESTS=${RUN_TESTS} --env ALLOW_TESTS_FAILURES=${ALLOW_TESTS_FAILURES} "${docker_target}:latest" 
+    docker build . -f docker/Dockerfile.system -t "${docker_target}" --build-arg ci_env_repo=${CI_ENV_REPO_ENV} --build-arg ci_env_branch=${CI_ENV_BRANCH_ENV} && docker run --rm -it -p 3000:3000 --env TARBALL_URL=${TARBALL_URL} --env RUN_TESTS=${RUN_TESTS} --env ALLOW_TESTS_FAILURES=${ALLOW_TESTS_FAILURES} "${docker_target}:latest"
     ;;
   "system-no-it")
     docker_target="orchestrator-system"
-    docker build . -f docker/Dockerfile.system -t "${docker_target}" --build-arg ci_env_repo=${CI_ENV_REPO_ENV} --build-arg ci_env_branch=${CI_ENV_BRANCH_ENV} && docker run --rm --env TARBALL_URL=${TARBALL_URL} --env RUN_TESTS=${RUN_TESTS} --env ALLOW_TESTS_FAILURES=${ALLOW_TESTS_FAILURES} "${docker_target}:latest" 
+    docker build . -f docker/Dockerfile.system -t "${docker_target}" --build-arg ci_env_repo=${CI_ENV_REPO_ENV} --build-arg ci_env_branch=${CI_ENV_BRANCH_ENV} && docker run --rm --env TARBALL_URL=${TARBALL_URL} --env RUN_TESTS=${RUN_TESTS} --env ALLOW_TESTS_FAILURES=${ALLOW_TESTS_FAILURES} "${docker_target}:latest"
     ;;
   "raft")
     docker_target="orchestrator-raft"
