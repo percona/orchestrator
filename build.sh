@@ -227,7 +227,7 @@ package_linux() {
   [ $do_rpm -eq 1 ] && fpm -v "${RELEASE_VERSION}" --epoch 1  -f -s dir -n orchestrator-client -m shlomi-noach --description "MySQL replication topology management and HA: client script" --url "https://github.com/openark/orchestrator" --vendor "GitHub" --license "Apache 2.0" -C $build_path/orchestrator-client --prefix=/ --depends 'jq >= 1.5' -t rpm .
   [ $do_deb -eq 1 ] && fpm -v "${RELEASE_VERSION}" --epoch 1  -f -s dir -n orchestrator-client -m shlomi-noach --description "MySQL replication topology management and HA: client script" --url "https://github.com/openark/orchestrator" --vendor "GitHub" --license "Apache 2.0" -C $build_path/orchestrator-client --prefix=/ --depends 'jq >= 1.5' -t deb --deb-no-default-config-files .
 
-  if [ ! -z "$package_name_extra" ] ; then
+  if [ -n "$package_name_extra" ] ; then
     # Strip version core out of sting like "3.2.6-pre123+g1234567" to "3.2.6".
     # We need it because `-` is converted to `_` in rpm package name,
     # and `+` have a special meaning for `sed`.
@@ -281,7 +281,7 @@ main() {
   local build_only=$5
   local build_path
 
-  if [ "${RELEASE_VERSION}" == "" ] ; then
+  if [ -z "${RELEASE_VERSION}" ] ; then
     RELEASE_VERSION=$(cat $basedir/RELEASE_VERSION)
   fi
   RELEASE_VERSION="${RELEASE_VERSION}${RELEASE_SUBVERSION}"
