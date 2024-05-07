@@ -8,8 +8,8 @@ set -e
 
 basedir=$(dirname $0)
 GIT_COMMIT=$(git rev-parse HEAD)
-RELEASE_VERSION=
-RELEASE_SUBVERSION=
+RELEASE_VERSION=${RELEASE_VERSION:-""}
+RELEASE_SUBVERSION=${RELEASE_SUBVERSION:-""}
 release_base_path=/tmp/orchestrator-release
 export RELEASE_VERSION release_base_path
 
@@ -36,8 +36,8 @@ usage() {
   echo "-R retain existing build/deployment paths"
   echo "-p build prefix Default:(/usr/local)"
   echo "-r build with race detector"
-  echo "-v release version (optional; default: content of RELEASE_VERSION file)"
-  echo "-s release subversion (optional; default: empty)"
+  echo "-v release version (optional; default: the value of RELEASE_VERSION environment variable, or content of RELEASE_VERSION file)"
+  echo "-s release subversion (optional; default: the value of RELEASE_SUBVERSION environment variable, or empty)"
   echo
 }
 
@@ -227,9 +227,13 @@ package_linux() {
   [ $do_rpm -eq 1 ] && fpm -v "${RELEASE_VERSION}" --epoch 1  -f -s dir -n orchestrator-client -m shlomi-noach --description "MySQL replication topology management and HA: client script" --url "https://github.com/openark/orchestrator" --vendor "GitHub" --license "Apache 2.0" -C $build_path/orchestrator-client --prefix=/ --depends 'jq >= 1.5' -t rpm .
   [ $do_deb -eq 1 ] && fpm -v "${RELEASE_VERSION}" --epoch 1  -f -s dir -n orchestrator-client -m shlomi-noach --description "MySQL replication topology management and HA: client script" --url "https://github.com/openark/orchestrator" --vendor "GitHub" --license "Apache 2.0" -C $build_path/orchestrator-client --prefix=/ --depends 'jq >= 1.5' -t deb --deb-no-default-config-files .
 
-  if [ ! -z "$package_name_extra" ] ; then
-    ls *.rpm | while read f; do package_file=$(echo $f | sed -r -e "s/^(.*)-${RELEASE_VERSION}(.*)/\1${package_name_extra}-${RELEASE_VERSION}\2/g") ; mv $f $package_file ; done
-    ls *.deb | while read f; do package_file=$(echo $f | sed -r -e "s/^(.*)_${RELEASE_VERSION}(.*)/\1${package_name_extra}-${RELEASE_VERSION}\2/g") ; mv $f $package_file ; done
+  if [ -n "$package_name_extra" ] ; then
+    # Strip version core out of sting like "3.2.6-pre123+g1234567" to "3.2.6".
+    # We need it because `-` is converted to `_` in rpm package name,
+    # and `+` have a special meaning for `sed`.
+    VERSION_CORE=$(echo $RELEASE_VERSION | sed -r -e "s/^([0-9]+\.[0-9]+\.[0-9]+).*$/\1/g")
+    ls *.rpm | while read f; do package_file=$(echo $f | sed -r -e "s/^(.*)-${VERSION_CORE}(.*)/\1${package_name_extra}-${VERSION_CORE}\2/g") ; mv $f $package_file ; done
+    ls *.deb | while read f; do package_file=$(echo $f | sed -r -e "s/^(.*)_${VERSION_CORE}(.*)/\1${package_name_extra}-${VERSION_CORE}\2/g") ; mv $f $package_file ; done
   fi
 
   debug "packeges:"
