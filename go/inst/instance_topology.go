@@ -1328,7 +1328,7 @@ func ErrantGTIDResetMaster(instanceKey *InstanceKey) (instance *Instance, err er
 		if err != nil {
 			goto Cleanup
 		}
-		replicationStopped, err = waitForReplicationState(instanceKey, ReplicationThreadStateStopped)
+		replicationStopped, err = waitForReplicationState(instance, instanceKey, ReplicationThreadStateStopped)
 		if err != nil {
 			goto Cleanup
 		}
@@ -1358,7 +1358,7 @@ func ErrantGTIDResetMaster(instanceKey *InstanceKey) (instance *Instance, err er
 		goto Cleanup
 	}
 
-	masterStatusFound, executedGtidSet, err = ShowMasterStatus(instanceKey)
+	masterStatusFound, executedGtidSet, err = ShowMasterStatus(instance, instanceKey)
 	if err != nil {
 		err = fmt.Errorf("gtid-errant-reset-master: error getting master status on %+v, after which intended to set gtid_purged to: %s. Error was: %+v", instance.Key, gtidSubtract, err)
 		goto Cleanup

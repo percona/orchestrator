@@ -57,20 +57,44 @@ func init() {
 }
 
 type SqlUtilsLogger struct {
-	client_context string
+	client_context     string
+	backend_connection bool
 }
 
 func (logger SqlUtilsLogger) OnError(caller_context string, query string, err error) error {
-	query = strings.Join(strings.Fields(query), " ")  // trim whitespaces
-	query = strings.Replace(query, "%", "%%", -1)  // escape %
+	query = strings.Join(strings.Fields(query), " ") // trim whitespaces
+	query = strings.Replace(query, "%", "%%", -1)    // escape %
 
 	msg := fmt.Sprintf("%+v(%+v) %+v: %+v",
-						caller_context,
-						logger.client_context,
-						query,
-						err)
+		caller_context,
+		logger.client_context,
+		query,
+		err)
 
 	return log.Errorf(msg)
+}
+
+// This validator is for dev purposes only. Call of this validator is
+// disabled in sqlutils.go
+var query_whitelist = []string{
+	"substring_index(host, ':', 1) as slave_hostname",
+}
+
+func (logger SqlUtilsLogger) ValidateQuery(query string) {
+	if !logger.backend_connection {
+		// check if whitelisted
+		for i := 0; i < len(query_whitelist); i++ {
+			if strings.Contains(query, query_whitelist[i]) {
+				return
+			}
+		}
+
+		lquery := strings.ToLower(query)
+		if strings.Contains(lquery, "master") || strings.Contains(lquery, "slave") {
+			log.Error("QUERY CONTAINS MASTER / SLAVE: ")
+			// panic("Query contains master/slave: " + query)
+		}
+	}
 }
 
 func requiresTLS(host string, port int, mysql_uri string) bool {
@@ -82,7 +106,7 @@ func requiresTLS(host string, port int, mysql_uri string) bool {
 	}
 
 	required := false
-	sqlUtilsLogger := SqlUtilsLogger{client_context: host + ":" + strconv.Itoa(port)}
+	sqlUtilsLogger := SqlUtilsLogger{client_context: host + ":" + strconv.Itoa(port), backend_connection: false}
 	db, _, _ := sqlutils.GetDB(mysql_uri, sqlUtilsLogger)
 	if err := db.Ping(); err != nil && (strings.Contains(err.Error(), Error3159) || strings.Contains(err.Error(), Error1045)) {
 		required = true

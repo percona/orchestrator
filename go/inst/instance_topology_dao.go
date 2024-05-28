@@ -151,19 +151,19 @@ func GetReplicationRestartPreserveStatements(instanceKey *InstanceKey, injectedS
 		return statements, err
 	}
 	if instance.ReplicationIOThreadRuning {
-		statements = append(statements, SemicolonTerminated(`stop slave io_thread`))
+		statements = append(statements, SemicolonTerminated(instance.QSP.stop_slave_io_thread()))
 	}
 	if instance.ReplicationSQLThreadRuning {
-		statements = append(statements, SemicolonTerminated(`stop slave sql_thread`))
+		statements = append(statements, SemicolonTerminated(instance.QSP.stop_slave_sql_thread()))
 	}
 	if injectedStatement != "" {
 		statements = append(statements, SemicolonTerminated(injectedStatement))
 	}
 	if instance.ReplicationSQLThreadRuning {
-		statements = append(statements, SemicolonTerminated(`start slave sql_thread`))
+		statements = append(statements, SemicolonTerminated(instance.QSP.start_slave_sql_thread()))
 	}
 	if instance.ReplicationIOThreadRuning {
-		statements = append(statements, SemicolonTerminated(`start slave io_thread`))
+		statements = append(statements, SemicolonTerminated(instance.QSP.start_slave_io_thread()))
 	}
 	return statements, err
 }
@@ -241,7 +241,6 @@ func SetSemiSyncReplica(instanceKey *InstanceKey, enableReplica bool) (*Instance
 	if instance.SemiSyncReplicaEnabled == enableReplica {
 		return instance, nil
 	}
-
 	query := "set @@global.rpl_semi_sync_slave_enabled=?"
 	if instance.SemiSyncReplicaPluginNewVersion {
 		query = "set @@global.rpl_semi_sync_replica_enabled=?"
@@ -252,16 +251,16 @@ func SetSemiSyncReplica(instanceKey *InstanceKey, enableReplica bool) (*Instance
 	}
 	if instance.ReplicationIOThreadRuning {
 		// Need to apply change by stopping starting IO thread
-		ExecInstance(instanceKey, "stop slave io_thread")
-		if _, err := ExecInstance(instanceKey, "start slave io_thread"); err != nil {
+		ExecInstance(instanceKey, instance.QSP.stop_slave_io_thread())
+		if _, err := ExecInstance(instanceKey, instance.QSP.start_slave_io_thread()); err != nil {
 			return instance, log.Errore(err)
 		}
 	}
 	return ReadTopologyInstance(instanceKey)
 }
 
-func RestartReplicationQuick(instanceKey *InstanceKey) error {
-	for _, cmd := range []string{`stop slave io_thread`, `start slave io_thread`} {
+func RestartReplicationQuick(instance *Instance, instanceKey *InstanceKey) error {
+	for _, cmd := range []string{instance.QSP.stop_slave_io_thread(), instance.QSP.start_slave_io_thread()} {
 		if _, err := ExecInstance(instanceKey, cmd); err != nil {
 			return log.Errorf("%+v: RestartReplicationQuick: '%q' failed: %+v", *instanceKey, cmd, err)
 		} else {
@@ -285,7 +284,7 @@ func StopReplicationNicely(instanceKey *InstanceKey, timeout time.Duration) (*In
 	}
 
 	// stop io_thread, start sql_thread but catch any errors
-	for _, cmd := range []string{`stop slave io_thread`, `start slave sql_thread`} {
+	for _, cmd := range []string{instance.QSP.stop_slave_io_thread(), instance.QSP.start_slave_sql_thread()} {
 		if _, err := ExecInstance(instanceKey, cmd); err != nil {
 			return nil, log.Errorf("%+v: StopReplicationNicely: '%q' failed: %+v", *instanceKey, cmd, err)
 		}
@@ -298,7 +297,7 @@ func StopReplicationNicely(instanceKey *InstanceKey, timeout time.Duration) (*In
 		}
 	}
 
-	_, err = ExecInstance(instanceKey, `stop slave`)
+	_, err = ExecInstance(instanceKey, instance.QSP.stop_slave())
 	if err != nil {
 		// Patch; current MaxScale behavior for STOP SLAVE is to throw an error if replica already stopped.
 		if instance.isMaxScale() && err.Error() == "Error 1199: Slave connection is not running" {
@@ -407,7 +406,8 @@ func StopReplication(instanceKey *InstanceKey) (*Instance, error) {
 	if !instance.IsReplica() {
 		return instance, fmt.Errorf("instance is not a replica: %+v", instanceKey)
 	}
-	_, err = ExecInstance(instanceKey, `stop slave`)
+
+	_, err = ExecInstance(instanceKey, instance.QSP.stop_slave())
 	if err != nil {
 		// Patch; current MaxScale behavior for STOP SLAVE is to throw an error if replica already stopped.
 		if instance.isMaxScale() && err.Error() == "Error 1199: Slave connection is not running" {
@@ -426,7 +426,7 @@ func StopReplication(instanceKey *InstanceKey) (*Instance, error) {
 // waitForReplicationState waits for both replication threads to be either running or not running, together.
 // This is useful post- `start slave` operation, ensuring both threads are actually running,
 // or post `stop slave` operation, ensuring both threads are not running.
-func waitForReplicationState(instanceKey *InstanceKey, expectedState ReplicationThreadState) (expectationMet bool, err error) {
+func waitForReplicationState(instance *Instance, instanceKey *InstanceKey, expectedState ReplicationThreadState) (expectationMet bool, err error) {
 	waitDuration := time.Second
 	waitInterval := 10 * time.Millisecond
 	startTime := time.Now()
@@ -434,7 +434,7 @@ func waitForReplicationState(instanceKey *InstanceKey, expectedState Replication
 	for {
 		// Since this is an incremental aggressive polling, it's OK if an occasional
 		// error is observed. We don't bail out on a single error.
-		if expectationMet, _ := expectReplicationThreadsState(instanceKey, expectedState); expectationMet {
+		if expectationMet, _ := expectReplicationThreadsState(instance, instanceKey, expectedState); expectationMet {
 			return true, nil
 		}
 		if time.Since(startTime)+waitInterval > waitDuration {
@@ -472,13 +472,13 @@ func StartReplication(instanceKey *InstanceKey) (*Instance, error) {
 		return instance, log.Errore(err)
 	}
 
-	_, err = ExecInstance(instanceKey, `start slave`)
+	_, err = ExecInstance(instanceKey, instance.QSP.start_slave())
 	if err != nil {
 		return instance, log.Errore(err)
 	}
 	log.Infof("Started replication on %+v", instanceKey)
 
-	waitForReplicationState(instanceKey, ReplicationThreadStateRunning)
+	waitForReplicationState(instance, instanceKey, ReplicationThreadStateRunning)
 
 	instance, err = ReadTopologyInstance(instanceKey)
 	if err != nil {
@@ -569,7 +569,7 @@ func StartReplicationUntilMasterCoordinates(instanceKey *InstanceKey, masterCoor
 	// MariaDB has a bug: a CHANGE MASTER TO statement does not work properly with prepared statement... :P
 	// See https://mariadb.atlassian.net/browse/MDEV-7640
 	// This is the reason for ExecInstance
-	_, err = ExecInstance(instanceKey, "start slave until master_log_file=?, master_log_pos=?",
+	_, err = ExecInstance(instanceKey, instance.QSP.start_slave_until_master_log(),
 		masterCoordinates.LogFile, masterCoordinates.LogPos)
 	if err != nil {
 		return instance, log.Errore(err)
@@ -787,7 +787,14 @@ func DelayReplication(instanceKey *InstanceKey, seconds int) error {
 	if seconds < 0 {
 		return fmt.Errorf("invalid seconds: %d, it should be greater or equal to 0", seconds)
 	}
-	query := fmt.Sprintf("change master to master_delay=%d", seconds)
+
+	instance, err := ReadTopologyInstance(instanceKey)
+
+	if err != nil {
+		return err
+	}
+
+	query := fmt.Sprintf(instance.QSP.change_master_to_master_delay(), seconds)
 	statements, err := GetReplicationRestartPreserveStatements(instanceKey, query)
 	if err != nil {
 		return err
@@ -826,32 +833,32 @@ func ChangeMasterCredentials(instanceKey *InstanceKey, creds *ReplicationCredent
 	var query_params_args []interface{}
 
 	// User
-	query_params = append(query_params, "master_user = ?")
+	query_params = append(query_params, instance.QSP.master_user_param())
 	query_params_args = append(query_params_args, creds.User)
 	// Password
 	if creds.Password != "" {
-		query_params = append(query_params, "master_password = ?")
+		query_params = append(query_params, instance.QSP.master_password_param())
 		query_params_args = append(query_params_args, creds.Password)
 	}
 
 	// SSL CA cert
 	if creds.SSLCaCert != "" {
-		query_params = append(query_params, "master_ssl_ca = ?")
+		query_params = append(query_params, instance.QSP.master_ssl_ca_param())
 		query_params_args = append(query_params_args, creds.SSLCaCert)
 	}
 	// SSL cert
 	if creds.SSLCert != "" {
-		query_params = append(query_params, "master_ssl_cert = ?")
+		query_params = append(query_params, instance.QSP.master_ssl_cert_param())
 		query_params_args = append(query_params_args, creds.SSLCert)
 	}
 	// SSL key
 	if creds.SSLKey != "" {
-		query_params = append(query_params, "master_ssl = 1")
-		query_params = append(query_params, "master_ssl_key = ?")
+		query_params = append(query_params, instance.QSP.master_ssl()+" = 1")
+		query_params = append(query_params, instance.QSP.master_ssl_key_param())
 		query_params_args = append(query_params_args, creds.SSLKey)
 	}
 
-	query := fmt.Sprintf("change master to %s", strings.Join(query_params, ", "))
+	query := fmt.Sprintf(instance.QSP.change_master_to_with_params(), strings.Join(query_params, ", "))
 	_, err = ExecInstance(instanceKey, query, query_params_args...)
 
 	if err != nil {
@@ -879,7 +886,7 @@ func EnableMasterSSL(instanceKey *InstanceKey) (*Instance, error) {
 	if *config.RuntimeCLIFlags.Noop {
 		return instance, fmt.Errorf("noop: aborting CHANGE MASTER TO MASTER_SSL=1 operation on %+v; signaling error but nothing went wrong.", *instanceKey)
 	}
-	_, err = ExecInstance(instanceKey, "change master to master_ssl=1")
+	_, err = ExecInstance(instanceKey, instance.QSP.change_master_to_master_ssl())
 
 	if err != nil {
 		return instance, log.Errore(err)
@@ -892,13 +899,13 @@ func EnableMasterSSL(instanceKey *InstanceKey) (*Instance, error) {
 }
 
 // See https://bugs.mysql.com/bug.php?id=83713
-func workaroundBug83713(instanceKey *InstanceKey) {
+func workaroundBug83713(instance *Instance, instanceKey *InstanceKey) {
 	log.Debugf("workaroundBug83713: %+v", *instanceKey)
 	queries := []string{
-		`reset slave`,
-		`start slave IO_THREAD`,
-		`stop slave IO_THREAD`,
-		`reset slave`,
+		instance.QSP.reset_slave(),
+		instance.QSP.start_slave_io_thread(),
+		instance.QSP.stop_slave_io_thread(),
+		instance.QSP.reset_slave(),
 	}
 	for _, query := range queries {
 		if _, err := ExecInstance(instanceKey, query); err != nil {
@@ -943,7 +950,7 @@ func ChangeMasterTo(instanceKey *InstanceKey, masterKey *InstanceKey, masterBinl
 	if instance.UsingMariaDBGTID && gtidHint != GTIDHintDeny {
 		// Keep on using GTID
 		changeMasterFunc = func() error {
-			_, err := ExecInstance(instanceKey, "change master to master_host=?, master_port=?",
+			_, err := ExecInstance(instanceKey, instance.QSP.change_master_to_master_host_port(),
 				changeToMasterKey.Hostname, changeToMasterKey.Port)
 			return err
 		}
@@ -951,12 +958,13 @@ func ChangeMasterTo(instanceKey *InstanceKey, masterKey *InstanceKey, masterBinl
 	} else if instance.UsingMariaDBGTID && gtidHint == GTIDHintDeny {
 		// Make sure to not use GTID
 		changeMasterFunc = func() error {
-			_, err = ExecInstance(instanceKey, "change master to master_host=?, master_port=?, master_log_file=?, master_log_pos=?, master_use_gtid=no",
+			_, err = ExecInstance(instanceKey, instance.QSP.change_master_to_master_host_port_log_gtid_no(),
 				changeToMasterKey.Hostname, changeToMasterKey.Port, masterBinlogCoordinates.LogFile, masterBinlogCoordinates.LogPos)
 			return err
 		}
 	} else if instance.IsMariaDB() && gtidHint == GTIDHintForce {
 		// Is MariaDB; not using GTID, turn into GTID
+		// his is MariaDB. Leave master/slave wording for now
 		mariadbGTIDHint := "slave_pos"
 		if !instance.ReplicationThreadsExist() {
 			// This instance is currently a master. As per https://mariadb.com/kb/en/change-master-to/#master_use_gtid
@@ -975,7 +983,7 @@ func ChangeMasterTo(instanceKey *InstanceKey, masterKey *InstanceKey, masterBinl
 	} else if instance.UsingOracleGTID && gtidHint != GTIDHintDeny {
 		// Is Oracle; already uses GTID; keep using it.
 		changeMasterFunc = func() error {
-			_, err = ExecInstance(instanceKey, "change master to master_host=?, master_port=?",
+			_, err = ExecInstance(instanceKey, instance.QSP.change_master_to_master_host_port(),
 				changeToMasterKey.Hostname, changeToMasterKey.Port)
 			return err
 		}
@@ -983,14 +991,14 @@ func ChangeMasterTo(instanceKey *InstanceKey, masterKey *InstanceKey, masterBinl
 	} else if instance.UsingOracleGTID && gtidHint == GTIDHintDeny {
 		// Is Oracle; already uses GTID
 		changeMasterFunc = func() error {
-			_, err = ExecInstance(instanceKey, "change master to master_host=?, master_port=?, master_log_file=?, master_log_pos=?, master_auto_position=0",
+			_, err = ExecInstance(instanceKey, instance.QSP.change_master_to_master_host_port_log_autoposition_no(),
 				changeToMasterKey.Hostname, changeToMasterKey.Port, masterBinlogCoordinates.LogFile, masterBinlogCoordinates.LogPos)
 			return err
 		}
 	} else if instance.SupportsOracleGTID && gtidHint == GTIDHintForce {
 		// Is Oracle; not using GTID right now; turn into GTID
 		changeMasterFunc = func() error {
-			_, err = ExecInstance(instanceKey, "change master to master_host=?, master_port=?, master_auto_position=1",
+			_, err = ExecInstance(instanceKey, instance.QSP.change_master_to_master_host_port_autoposition_yes(),
 				changeToMasterKey.Hostname, changeToMasterKey.Port)
 			return err
 		}
@@ -998,7 +1006,7 @@ func ChangeMasterTo(instanceKey *InstanceKey, masterKey *InstanceKey, masterBinl
 	} else {
 		// Normal binlog file:pos
 		changeMasterFunc = func() error {
-			_, err = ExecInstance(instanceKey, "change master to master_host=?, master_port=?, master_log_file=?, master_log_pos=?",
+			_, err = ExecInstance(instanceKey, instance.QSP.change_master_to_master_host_port_log(),
 				changeToMasterKey.Hostname, changeToMasterKey.Port, masterBinlogCoordinates.LogFile, masterBinlogCoordinates.LogPos)
 			return err
 		}
@@ -1006,7 +1014,7 @@ func ChangeMasterTo(instanceKey *InstanceKey, masterKey *InstanceKey, masterBinl
 	err = changeMasterFunc()
 	if err != nil && instance.UsingOracleGTID && strings.Contains(err.Error(), Error1201CouldnotInitializeMasterInfoStructure) {
 		log.Debugf("ChangeMasterTo: got %+v", err)
-		workaroundBug83713(instanceKey)
+		workaroundBug83713(instance, instanceKey)
 		err = changeMasterFunc()
 	}
 	if err != nil {
@@ -1064,15 +1072,15 @@ func ResetReplication(instanceKey *InstanceKey) (*Instance, error) {
 	// and only resets till after next restart. This leads to orchestrator still thinking the instance replicates
 	// from old host. We therefore forcibly modify the hostname.
 	// RESET SLAVE ALL command solves this, but only as of 5.6.3
-	_, err = ExecInstance(instanceKey, `change master to master_host='_'`)
+	_, err = ExecInstance(instanceKey, instance.QSP.change_master_to_master_host())
 	if err != nil {
 		return instance, log.Errore(err)
 	}
-	_, err = ExecInstance(instanceKey, `reset slave /*!50603 all */`)
+	_, err = ExecInstance(instanceKey, instance.QSP.reset_slave_50603_all())
 	if err != nil && strings.Contains(err.Error(), Error1201CouldnotInitializeMasterInfoStructure) {
 		log.Debugf("ResetReplication: got %+v", err)
-		workaroundBug83713(instanceKey)
-		_, err = ExecInstance(instanceKey, `reset slave /*!50603 all */`)
+		workaroundBug83713(instance, instanceKey)
+		_, err = ExecInstance(instanceKey, instance.QSP.reset_slave_50603_all())
 	}
 	if err != nil {
 		return instance, log.Errore(err)
@@ -1098,7 +1106,7 @@ func ResetMaster(instanceKey *InstanceKey) (*Instance, error) {
 		return instance, fmt.Errorf("noop: aborting reset-master operation on %+v; signalling error but nothing went wrong.", *instanceKey)
 	}
 
-	_, err = ExecInstance(instanceKey, `reset master`)
+	_, err = ExecInstance(instanceKey, instance.QSP.reset_master())
 	if err != nil {
 		return instance, log.Errore(err)
 	}
@@ -1149,7 +1157,7 @@ func injectEmptyGTIDTransaction(instanceKey *InstanceKey, gtidEntry *OracleGtidS
 
 // skipQueryClassic skips a query in normal binlog file:pos replication
 func skipQueryClassic(instance *Instance) error {
-	_, err := ExecInstance(&instance.Key, `set global sql_slave_skip_counter := 1`)
+	_, err := ExecInstance(&instance.Key, instance.QSP.set_sql_slave_skip_counter())
 	return err
 }
 
@@ -1217,7 +1225,7 @@ func MasterPosWait(instanceKey *InstanceKey, binlogCoordinates *BinlogCoordinate
 		return instance, log.Errore(err)
 	}
 
-	_, err = ExecInstance(instanceKey, `select master_pos_wait(?, ?)`, binlogCoordinates.LogFile, binlogCoordinates.LogPos)
+	_, err = ExecInstance(instanceKey, instance.QSP.select_master_pos_wait(), binlogCoordinates.LogFile, binlogCoordinates.LogPos)
 	if err != nil {
 		return instance, log.Errore(err)
 	}
@@ -1231,7 +1239,6 @@ func MasterPosWait(instanceKey *InstanceKey, binlogCoordinates *BinlogCoordinate
 func ReadReplicationCredentials(instanceKey *InstanceKey) (creds *ReplicationCredentials, err error) {
 	creds = &ReplicationCredentials{}
 	if config.Config.ReplicationCredentialsQuery != "" {
-
 		db, err := db.OpenTopology(instanceKey.Hostname, instanceKey.Port)
 		if err != nil {
 			return creds, log.Errore(err)
@@ -1272,6 +1279,7 @@ func ReadReplicationCredentials(instanceKey *InstanceKey) (creds *ReplicationCre
 	// Didn't get credentials from ReplicationCredentialsQuery, or ReplicationCredentialsQuery doesn't exist in the first place?
 	// We brute force our way through mysql.slave_master_info
 	{
+		// mysql.slave_master_info table is still present in 8.4, no need for instance.QSP
 		query := `
 			select
 				ifnull(max(User_name), '') as user,
@@ -1283,6 +1291,7 @@ func ReadReplicationCredentials(instanceKey *InstanceKey) (creds *ReplicationCre
 		if err == nil && creds.User == "" {
 			err = fmt.Errorf("Empty username found in mysql.slave_master_info")
 		}
+
 	}
 	return creds, log.Errore(err)
 }
@@ -1469,12 +1478,12 @@ func GTIDSubtract(instanceKey *InstanceKey, gtidSet string, gtidSubset string) (
 	return gtidSubtract, err
 }
 
-func ShowMasterStatus(instanceKey *InstanceKey) (masterStatusFound bool, executedGtidSet string, err error) {
+func ShowMasterStatus(instance *Instance, instanceKey *InstanceKey) (masterStatusFound bool, executedGtidSet string, err error) {
 	db, err := db.OpenTopology(instanceKey.Hostname, instanceKey.Port)
 	if err != nil {
 		return masterStatusFound, executedGtidSet, err
 	}
-	err = sqlutils.QueryRowsMap(db, "show master status", func(m sqlutils.RowMap) error {
+	err = sqlutils.QueryRowsMap(db, instance.QSP.show_master_status(), func(m sqlutils.RowMap) error {
 		masterStatusFound = true
 		executedGtidSet = m.GetStringD("Executed_Gtid_Set", "")
 		return nil

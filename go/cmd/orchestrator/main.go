@@ -136,7 +136,7 @@ func main() {
 
 	if len(flag.Args()) == 0 && *command == "" {
 		// No command, no argument: just prompt
-		fmt.Println(app.AppPrompt)
+		fmt.Print(app.AppPrompt)
 		return
 	}
 

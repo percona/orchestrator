@@ -306,7 +306,7 @@ test_all() {
   local failed_cnt=0
   local total_cnt=0
   local expected_cnt=`find $tests_path -mindepth 1 -maxdepth 1 ! -path . -type d | wc -l`
-  
+
   local test_pattern="${1:-.}"
 
   echo "." > $tests_todo_file
@@ -318,7 +318,7 @@ test_all() {
       fi
       if should_attempt_test "$test_name" "$test_pattern" ; then
         # try up to 3 times. Some tests seem to be not stable
-        
+
         test_status="PASSED"
         for i in {1..3}
         do
@@ -359,7 +359,7 @@ test_all() {
         else
           echo "Unexpected test_status: ${test_status}"
         fi
-        ((total_cnt++))    
+        ((total_cnt++))
       else
         : # echo "# should not attempt $test_name"
       fi
@@ -371,8 +371,8 @@ test_all() {
       exit 1
     fi
   done || exit 1
-  
-  echo "Test results:"
+
+  echo "Test results (cnt/executed_tests_cnt/total_tests_count):"
   echo "PASSED:   ${passed_cnt}/${total_cnt}/${expected_cnt}"
   echo "UNSTABLE: ${unstable_cnt}/${total_cnt}/${expected_cnt}"
   echo "FAILED:   ${failed_cnt}/${total_cnt}/${expected_cnt}"

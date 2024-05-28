@@ -7,7 +7,11 @@ export CI_ENV_REPO=
 export CI_ENV_BRANCH=
 
 # Configure test run parameters
-export TARBALL_URL=https://downloads.percona.com/downloads/Percona-Server-8.0/Percona-Server-8.0.30-22/binary/tarball/Percona-Server-8.0.30-22-Linux.x86_64.glibc2.17-minimal.tar.gz
+export TARBALL_URL=https://dev.mysql.com/get/Downloads/MySQL-8.4/mysql-8.4.0-linux-glibc2.17-x86_64-minimal.tar.xz
+# export TARBALL_URL=https://dev.mysql.com/get/Downloads/MySQL-8.0/mysql-8.0.37-linux-glibc2.17-x86_64-minimal.tar.xz
+
+#export TARBALL_URL=https://downloads.percona.com/downloads/Percona-Server-8.0/Percona-Server-8.0.36-28/binary/tarball/Percona-Server-8.0.36-28-Linux.x86_64.glibc2.17-minimal.tar.gz
+
 export RUN_TESTS=YES
 export ALLOW_TESTS_FAILURES=YES
 
