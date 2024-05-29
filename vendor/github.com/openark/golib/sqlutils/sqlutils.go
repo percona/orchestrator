@@ -175,9 +175,8 @@ func validateQuery(query string, db *sql.DB) {
 	return
 
 	knownDBsMutex.RLock()
-	defer func() {
-		knownDBsMutex.RUnlock()
-	}()
+	defer knownDBsMutex.RUnlock()
+
 	if logger, exists := DB2logger[db]; exists && logger != nil {
 		logger.ValidateQuery((query))
 	}
@@ -282,9 +281,7 @@ func ScanRowsToMaps(rows *sql.Rows, on_row func(RowMap) error) error {
 func logErrorInternal(context string, db *sql.DB, query string, err error) error{
 	// find logger registered by the client
 	knownDBsMutex.RLock()
-	defer func() {
-		knownDBsMutex.RUnlock()
-	}()
+	defer knownDBsMutex.RUnlock()
 
 	if logger, exists := DB2logger[db]; exists && logger != nil {
 		return logger.OnError(context, query, err)

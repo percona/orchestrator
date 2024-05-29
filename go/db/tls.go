@@ -81,19 +81,21 @@ var query_whitelist = []string{
 }
 
 func (logger SqlUtilsLogger) ValidateQuery(query string) {
-	if !logger.backend_connection {
-		// check if whitelisted
-		for i := 0; i < len(query_whitelist); i++ {
-			if strings.Contains(query, query_whitelist[i]) {
-				return
-			}
-		}
+	if logger.backend_connection {
+		return
+	}
 
-		lquery := strings.ToLower(query)
-		if strings.Contains(lquery, "master") || strings.Contains(lquery, "slave") {
-			log.Error("QUERY CONTAINS MASTER / SLAVE: ")
-			// panic("Query contains master/slave: " + query)
+	// check if whitelisted
+	for i := 0; i < len(query_whitelist); i++ {
+		if strings.Contains(query, query_whitelist[i]) {
+			return
 		}
+	}
+
+	lquery := strings.ToLower(query)
+	if strings.Contains(lquery, "master") || strings.Contains(lquery, "slave") {
+		log.Error("QUERY CONTAINS MASTER / SLAVE: ")
+		// panic("Query contains master/slave: " + query)
 	}
 }
 
