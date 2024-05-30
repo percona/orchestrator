@@ -321,14 +321,14 @@ func (instance *Instance) checkMaxScale(db *sql.DB, latency *stopwatch.NamedStop
 
 // expectReplicationThreadsState expects both replication threads to be running, or both to be not running.
 // Specifically, it looks for both to be "Yes" or for both to be "No".
-func expectReplicationThreadsState(instanceKey *InstanceKey, expectedState ReplicationThreadState) (expectationMet bool, err error) {
+func expectReplicationThreadsState(instance *Instance, instanceKey *InstanceKey, expectedState ReplicationThreadState) (expectationMet bool, err error) {
 	db, err := db.OpenTopology(instanceKey.Hostname, instanceKey.Port)
 	if err != nil {
 		return false, err
 	}
-	err = sqlutils.QueryRowsMap(db, "show slave status", func(m sqlutils.RowMap) error {
-		ioThreadState := ReplicationThreadStateFromStatus(m.GetString("Slave_IO_Running"))
-		sqlThreadState := ReplicationThreadStateFromStatus(m.GetString("Slave_SQL_Running"))
+	err = sqlutils.QueryRowsMap(db, instance.QSP.show_slave_status(), func(m sqlutils.RowMap) error {
+		ioThreadState := ReplicationThreadStateFromStatus(m.GetString(instance.QSP.slave_io_running()))
+		sqlThreadState := ReplicationThreadStateFromStatus(m.GetString(instance.QSP.slave_sql_running()))
 
 		if ioThreadState == expectedState && sqlThreadState == expectedState {
 			expectationMet = true
@@ -455,8 +455,13 @@ func ReadTopologyInstanceBufferable(instanceKey *InstanceKey, bufferWrites bool,
 		}
 
 		var mysqlHostname, mysqlReportHost string
-		err = db.QueryRow("select @@global.hostname, ifnull(@@global.report_host, ''), @@global.server_id, @@global.version, @@global.version_comment, @@global.read_only, @@global.binlog_format, @@global.log_bin, @@global.log_slave_updates").Scan(
-			&mysqlHostname, &mysqlReportHost, &instance.ServerID, &instance.Version, &instance.VersionComment, &instance.ReadOnly, &instance.Binlog_format, &instance.LogBinEnabled, &instance.LogReplicationUpdatesEnabled)
+		err = db.QueryRow("select @@global.version").Scan(&instance.Version)
+		if err != nil {
+			goto Cleanup
+		}
+		instance.QSP = GetQueryStringProvider(instance.Version)
+		err = db.QueryRow("select @@global.hostname, ifnull(@@global.report_host, ''), @@global.server_id, @@global.version_comment, @@global.read_only, @@global.binlog_format, @@global.log_bin, @@global."+instance.QSP.log_slave_updates()).Scan(
+			&mysqlHostname, &mysqlReportHost, &instance.ServerID, &instance.VersionComment, &instance.ReadOnly, &instance.Binlog_format, &instance.LogBinEnabled, &instance.LogReplicationUpdatesEnabled)
 		if err != nil {
 			goto Cleanup
 		}
@@ -480,7 +485,7 @@ func ReadTopologyInstanceBufferable(instanceKey *InstanceKey, bufferWrites bool,
 			waitGroup.Add(1)
 			go func() {
 				defer waitGroup.Done()
-				err := sqlutils.QueryRowsMap(db, "show master status", func(m sqlutils.RowMap) error {
+				err := sqlutils.QueryRowsMap(db, instance.QSP.show_master_status(), func(m sqlutils.RowMap) error {
 					var err error
 					instance.SelfBinlogCoordinates.LogFile = m.GetString("File")
 					instance.SelfBinlogCoordinates.LogPos = m.GetInt64("Position")
@@ -527,7 +532,6 @@ func ReadTopologyInstanceBufferable(instanceKey *InstanceKey, bufferWrites bool,
 							instance.SemiSyncMasterTimeout = m.GetUint64("Value")
 							return nil
 						}
-
 						matched, regexperr = regexp.MatchString("^rpl_semi_sync_(master|source)_wait_for_(slave|replica)_count$", variableName)
 						if regexperr != nil {
 							return regexperr
@@ -571,7 +575,6 @@ func ReadTopologyInstanceBufferable(instanceKey *InstanceKey, bufferWrites bool,
 						instance.SemiSyncMasterClients = m.GetUint("Value")
 						return nil
 					}
-
 					matched, regexperr = regexp.MatchString("^Rpl_semi_sync_(slave|replica)_status$", variableName)
 					if regexperr != nil {
 						return regexperr
@@ -595,13 +598,14 @@ func ReadTopologyInstanceBufferable(instanceKey *InstanceKey, bufferWrites bool,
 				// ...
 				// @@gtid_mode only available in Orcale MySQL >= 5.6
 				// Previous version just issued this query brute-force, but I don't like errors being issued where they shouldn't.
-				_ = db.QueryRow("select @@global.gtid_mode, @@global.server_uuid, @@global.gtid_executed, @@global.gtid_purged, @@global.master_info_repository = 'TABLE', @@global.binlog_row_image").Scan(&instance.GTIDMode, &instance.ServerUUID, &instance.ExecutedGtidSet, &instance.GtidPurged, &masterInfoRepositoryOnTable, &instance.BinlogRowImage)
+				_ = db.QueryRow(instance.QSP.master_gtid_info()).Scan(&instance.GTIDMode, &instance.ServerUUID, &instance.ExecutedGtidSet, &instance.GtidPurged, &masterInfoRepositoryOnTable, &instance.BinlogRowImage)
 				if instance.GTIDMode != "" && instance.GTIDMode != "OFF" {
 					instance.SupportsOracleGTID = true
 				}
 				if config.Config.ReplicationCredentialsQuery != "" {
 					instance.ReplicationCredentialsAvailable = true
 				} else if masterInfoRepositoryOnTable {
+					// mysql.slave_master_info table is still present in 8.4, no need for instance.QSP
 					_ = db.QueryRow("select count(*) > 0 and MAX(User_name) != '' from mysql.slave_master_info").Scan(&instance.ReplicationCredentialsAvailable)
 				}
 			}()
@@ -648,20 +652,20 @@ func ReadTopologyInstanceBufferable(instanceKey *InstanceKey, bufferWrites bool,
 
 	instance.ReplicationIOThreadState = ReplicationThreadStateNoThread
 	instance.ReplicationSQLThreadState = ReplicationThreadStateNoThread
-	err = sqlutils.QueryRowsMap(db, "show slave status", func(m sqlutils.RowMap) error {
-		instance.HasReplicationCredentials = (m.GetString("Master_User") != "")
-		instance.ReplicationIOThreadState = ReplicationThreadStateFromStatus(m.GetString("Slave_IO_Running"))
-		instance.ReplicationSQLThreadState = ReplicationThreadStateFromStatus(m.GetString("Slave_SQL_Running"))
+	err = sqlutils.QueryRowsMap(db, instance.QSP.show_slave_status(), func(m sqlutils.RowMap) error {
+		instance.HasReplicationCredentials = (m.GetString(instance.QSP.master_user()) != "")
+		instance.ReplicationIOThreadState = ReplicationThreadStateFromStatus(m.GetString(instance.QSP.slave_io_running()))
+		instance.ReplicationSQLThreadState = ReplicationThreadStateFromStatus(m.GetString(instance.QSP.slave_sql_running()))
 		instance.ReplicationIOThreadRuning = instance.ReplicationIOThreadState.IsRunning()
 		if isMaxScale110 {
 			// Covering buggy MaxScale 1.1.0
-			instance.ReplicationIOThreadRuning = instance.ReplicationIOThreadRuning && (m.GetString("Slave_IO_State") == "Binlog Dump")
+			instance.ReplicationIOThreadRuning = instance.ReplicationIOThreadRuning && (m.GetString(instance.QSP.slave_io_state()) == "Binlog Dump")
 		}
 		instance.ReplicationSQLThreadRuning = instance.ReplicationSQLThreadState.IsRunning()
-		instance.ReadBinlogCoordinates.LogFile = m.GetString("Master_Log_File")
-		instance.ReadBinlogCoordinates.LogPos = m.GetInt64("Read_Master_Log_Pos")
-		instance.ExecBinlogCoordinates.LogFile = m.GetString("Relay_Master_Log_File")
-		instance.ExecBinlogCoordinates.LogPos = m.GetInt64("Exec_Master_Log_Pos")
+		instance.ReadBinlogCoordinates.LogFile = m.GetString(instance.QSP.master_log_file())
+		instance.ReadBinlogCoordinates.LogPos = m.GetInt64(instance.QSP.read_master_log_pos())
+		instance.ExecBinlogCoordinates.LogFile = m.GetString(instance.QSP.relay_master_log_file())
+		instance.ExecBinlogCoordinates.LogPos = m.GetInt64(instance.QSP.relay_master_log_position())
 		instance.IsDetached, _ = instance.ExecBinlogCoordinates.ExtractDetachedCoordinates()
 		instance.RelaylogCoordinates.LogFile = m.GetString("Relay_Log_File")
 		instance.RelaylogCoordinates.LogPos = m.GetInt64("Relay_Log_Pos")
@@ -671,16 +675,16 @@ func ReadTopologyInstanceBufferable(instanceKey *InstanceKey, bufferWrites bool,
 		instance.SQLDelay = m.GetUintD("SQL_Delay", 0)
 		instance.UsingOracleGTID = (m.GetIntD("Auto_Position", 0) == 1)
 		instance.UsingMariaDBGTID = (m.GetStringD("Using_Gtid", "No") != "No")
-		instance.MasterUUID = m.GetStringD("Master_UUID", "No")
+		instance.MasterUUID = m.GetStringD(instance.QSP.master_uuid(), "No")
 		instance.HasReplicationFilters = ((m.GetStringD("Replicate_Do_DB", "") != "") || (m.GetStringD("Replicate_Ignore_DB", "") != "") || (m.GetStringD("Replicate_Do_Table", "") != "") || (m.GetStringD("Replicate_Ignore_Table", "") != "") || (m.GetStringD("Replicate_Wild_Do_Table", "") != "") || (m.GetStringD("Replicate_Wild_Ignore_Table", "") != ""))
 
-		masterHostname := m.GetString("Master_Host")
+		masterHostname := m.GetString(instance.QSP.master_host())
 		if isMaxScale110 {
 			// Buggy buggy maxscale 1.1.0. Reported Master_Host can be corrupted.
 			// Therefore we (currently) take @@hostname (which is masquarading as master host anyhow)
 			masterHostname = maxScaleMasterHostname
 		}
-		masterKey, err := NewResolveInstanceKey(masterHostname, m.GetInt("Master_Port"))
+		masterKey, err := NewResolveInstanceKey(masterHostname, m.GetInt(instance.QSP.master_port()))
 		if err != nil {
 			logReadTopologyInstanceError(instanceKey, "NewResolveInstanceKey", err)
 		}
@@ -690,7 +694,7 @@ func ReadTopologyInstanceBufferable(instanceKey *InstanceKey, bufferWrites bool,
 		}
 		instance.MasterKey = *masterKey
 		instance.IsDetachedMaster = instance.MasterKey.IsDetached()
-		instance.SecondsBehindMaster = m.GetNullInt64("Seconds_Behind_Master")
+		instance.SecondsBehindMaster = m.GetNullInt64(instance.QSP.seconds_behind_master())
 		if instance.SecondsBehindMaster.Valid && instance.SecondsBehindMaster.Int64 < 0 {
 			log.Warningf("Host: %+v, instance.SecondsBehindMaster < 0 [%+v], correcting to 0", instanceKey, instance.SecondsBehindMaster.Int64)
 			instance.SecondsBehindMaster.Int64 = 0
@@ -698,7 +702,7 @@ func ReadTopologyInstanceBufferable(instanceKey *InstanceKey, bufferWrites bool,
 		// And until told otherwise:
 		instance.ReplicationLagSeconds = instance.SecondsBehindMaster
 
-		instance.AllowTLS = (m.GetString("Master_SSL_Allowed") == "Yes")
+		instance.AllowTLS = (m.GetString(instance.QSP.master_ssl_allowed()) == "Yes")
 		// Not breaking the flow even on error
 		slaveStatusFound = true
 		return nil
@@ -749,7 +753,7 @@ func ReadTopologyInstanceBufferable(instanceKey *InstanceKey, bufferWrites bool,
 	// Get replicas, either by SHOW SLAVE HOSTS or via PROCESSLIST
 	// MaxScale does not support PROCESSLIST, so SHOW SLAVE HOSTS is the only option
 	if config.Config.DiscoverByShowSlaveHosts || isMaxScale {
-		err := sqlutils.QueryRowsMap(db, `show slave hosts`,
+		err := sqlutils.QueryRowsMap(db, instance.QSP.show_slave_hosts(),
 			func(m sqlutils.RowMap) error {
 				// MaxScale 1.1 may trigger an error with this command, but
 				// also we may see issues if anything on the MySQL server locks up.
@@ -776,7 +780,6 @@ func ReadTopologyInstanceBufferable(instanceKey *InstanceKey, bufferWrites bool,
 				}
 				return err
 			})
-
 		logReadTopologyInstanceError(instanceKey, "show slave hosts", err)
 	}
 	if !foundByShowSlaveHosts && !isMaxScale {

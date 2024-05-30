@@ -107,7 +107,7 @@ func openTopology(host string, port int, readTimeout int) (db *sql.DB, err error
 			return nil, err
 		}
 	}
-	sqlUtilsLogger := SqlUtilsLogger{client_context: host + ":" + strconv.Itoa(port)}
+	sqlUtilsLogger := SqlUtilsLogger{client_context: host + ":" + strconv.Itoa(port), backend_connection: false}
 	if db, _, err = sqlutils.GetDB(mysql_uri, sqlUtilsLogger); err != nil {
 		return nil, err
 	}
@@ -131,7 +131,7 @@ func openOrchestratorMySQLGeneric() (db *sql.DB, fromCache bool, err error) {
 	if config.Config.MySQLOrchestratorUseMutualTLS {
 		uri, _ = SetupMySQLOrchestratorTLS(uri)
 	}
-	sqlUtilsLogger := SqlUtilsLogger{client_context: config.Config.MySQLOrchestratorHost + ":" + strconv.FormatUint(uint64(config.Config.MySQLOrchestratorPort), 10)}
+	sqlUtilsLogger := SqlUtilsLogger{client_context: config.Config.MySQLOrchestratorHost + ":" + strconv.FormatUint(uint64(config.Config.MySQLOrchestratorPort), 10), backend_connection: true}
 	return sqlutils.GetDB(uri, sqlUtilsLogger)
 }
 
@@ -200,7 +200,7 @@ func OpenOrchestrator() (db *sql.DB, err error) {
 			}
 		}
 		dsn := getMySQLURI()
-		sqlUtilsLogger := SqlUtilsLogger{client_context: config.Config.MySQLOrchestratorHost + ":" + strconv.FormatUint(uint64(config.Config.MySQLOrchestratorPort), 10)}
+		sqlUtilsLogger := SqlUtilsLogger{client_context: config.Config.MySQLOrchestratorHost + ":" + strconv.FormatUint(uint64(config.Config.MySQLOrchestratorPort), 10), backend_connection: true}
 		db, fromCache, err = sqlutils.GetDB(dsn, sqlUtilsLogger)
 		if err == nil && !fromCache {
 			log.Debugf("Connected to orchestrator backend: %v", safeMySQLURI(dsn))

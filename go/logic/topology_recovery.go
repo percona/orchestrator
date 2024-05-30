@@ -1642,7 +1642,7 @@ func emergentlyRestartReplicationOnTopologyInstance(instanceKey *inst.InstanceKe
 			return
 		}
 
-		inst.RestartReplicationQuick(instanceKey)
+		inst.RestartReplicationQuick(instance, instanceKey)
 		inst.AuditOperation("emergently-restart-replication-topology-instance", instanceKey, string(analysisCode))
 	})
 }

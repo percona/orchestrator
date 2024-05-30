@@ -170,20 +170,34 @@ func (this *RowMap) GetTime(key string) time.Time {
 	return time.Time{}
 }
 
+func validateQuery(query string, db *sql.DB) {
+	// dev purposes only. Remove this return to call query validator function.
+	return
+
+	knownDBsMutex.RLock()
+	defer knownDBsMutex.RUnlock()
+
+	if logger, exists := DB2logger[db]; exists && logger != nil {
+		logger.ValidateQuery((query))
+	}
+}
+
 // knownDBs is a DB cache by uri
 var knownDBs map[string]*sql.DB = make(map[string]*sql.DB)
 var knownDBsMutex = &sync.RWMutex{}
 
 type Logger interface {
 	OnError(context string, query string, err error) error
+	ValidateQuery(query string)
 }
+
 // it is also protected by knownDBsMutex
 var DB2logger map[*sql.DB]Logger = make(map[*sql.DB]Logger)
 
 // GetDB returns a DB instance based on uri.
 // logger parameter is optional. If nil, internal logging will be used.
 // bool result indicates whether the DB was returned from cache; err
-func GetGenericDB(driverName, dataSourceName string ,logger Logger) (*sql.DB, bool, error) {
+func GetGenericDB(driverName, dataSourceName string, logger Logger) (*sql.DB, bool, error) {
 	knownDBsMutex.Lock()
 	defer func() {
 		knownDBsMutex.Unlock()
@@ -221,7 +235,7 @@ func GetSQLiteDB(dbFile string, logger Logger) (*sql.DB, bool, error) {
 func RowToArray(rows *sql.Rows, columns []string) []CellData {
 	buff := make([]interface{}, len(columns))
 	data := make([]CellData, len(columns))
-	for i, _ := range buff {
+	for i := range buff {
 		buff[i] = data[i].NullString()
 	}
 	rows.Scan(buff...)
@@ -265,12 +279,10 @@ func ScanRowsToMaps(rows *sql.Rows, on_row func(RowMap) error) error {
 	return err
 }
 
-func logErrorInternal(context string, db *sql.DB, query string, err error) error{
+func logErrorInternal(context string, db *sql.DB, query string, err error) error {
 	// find logger registered by the client
 	knownDBsMutex.RLock()
-	defer func() {
-		knownDBsMutex.RUnlock()
-	}()
+	defer knownDBsMutex.RUnlock()
 
 	if logger, exists := DB2logger[db]; exists && logger != nil {
 		return logger.OnError(context, query, err)
@@ -282,6 +294,7 @@ func logErrorInternal(context string, db *sql.DB, query string, err error) error
 // QueryRowsMap is a convenience function allowing querying a result set while poviding a callback
 // function activated per read row.
 func QueryRowsMap(db *sql.DB, query string, on_row func(RowMap) error, args ...interface{}) (err error) {
+	validateQuery(query, db)
 	defer func() {
 		if derr := recover(); derr != nil {
 			err = fmt.Errorf("QueryRowsMap unexpected error: %+v", derr)
@@ -302,6 +315,7 @@ func QueryRowsMap(db *sql.DB, query string, on_row func(RowMap) error, args ...i
 
 // queryResultData returns a raw array of rows for a given query, optionally reading and returning column names
 func queryResultData(db *sql.DB, query string, retrieveColumns bool, args ...interface{}) (resultData ResultData, columns []string, err error) {
+	validateQuery(query, db)
 	defer func() {
 		if derr := recover(); derr != nil {
 			err = errors.New(fmt.Sprintf("QueryRowsMap unexpected error: %+v", derr))
@@ -358,6 +372,7 @@ func QueryRowsMapBuffered(db *sql.DB, query string, on_row func(RowMap) error, a
 
 // ExecNoPrepare executes given query using given args on given DB, without using prepared statements.
 func ExecNoPrepare(db *sql.DB, query string, args ...interface{}) (res sql.Result, err error) {
+	validateQuery(query, db)
 	defer func() {
 		if derr := recover(); derr != nil {
 			err = errors.New(fmt.Sprintf("ExecNoPrepare unexpected error: %+v", derr))
@@ -374,6 +389,7 @@ func ExecNoPrepare(db *sql.DB, query string, args ...interface{}) (res sql.Resul
 // ExecQuery executes given query using given args on given DB. It will safele prepare, execute and close
 // the statement.
 func execInternal(silent bool, db *sql.DB, query string, args ...interface{}) (res sql.Result, err error) {
+	validateQuery(query, db)
 	defer func() {
 		if derr := recover(); derr != nil {
 			err = errors.New(fmt.Sprintf("execInternal unexpected error: %+v", derr))

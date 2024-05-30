@@ -2,7 +2,7 @@ FROM golang:1.20.3-bullseye
 LABEL maintainer="openark@github.com"
 
 RUN apt-get update
-RUN apt-get install -y lsb-release rsync libaio1 numactl sqlite3
+RUN apt-get install -y lsb-release rsync libaio1 numactl sqlite3 libncurses5 libtinfo5
 RUN rm -rf /var/lib/apt/lists/*
 
 ENV WORKPATH /go/src/github.com/openark/orchestrator

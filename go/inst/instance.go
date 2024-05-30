@@ -148,6 +148,9 @@ type Instance struct {
 
 	// Primary of the replication group
 	ReplicationGroupPrimaryInstanceKey InstanceKey
+
+	// Query string provider
+	QSP QueryStringProvider
 }
 
 // NewInstance creates a new, empty instance

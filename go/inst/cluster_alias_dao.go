@@ -206,7 +206,7 @@ func UpdateClusterAliases() error {
 			// MySQL backend (Orchestrator supports only SQLite and MySQL backends)
 			// INSERT ON DUPLICATE KEY UPDATE is more performant than REPLACE in MySQL
 			err = updateClusterAliasesUsingInsert()
-			if (err != nil) {
+			if err != nil {
 				// Fallback to the original, safe implementation
 				err = updateClusterAliasesUsingReplace()
 			}
