@@ -73,7 +73,10 @@ func GetReplicationAnalysis(clusterName string, hints *ReplicationAnalysisHints)
 						SUM(
 							replica_instance.last_checked <= replica_instance.last_seen
 							AND replica_instance.slave_io_running = 0
-							AND replica_instance.last_io_error like '%error %connecting to master%'
+							AND (
+								replica_instance.last_io_error like '%error %connecting to master%'
+								OR replica_instance.last_io_error like '%error %connecting to source%'
+								)
 							AND replica_instance.slave_sql_running = 1
 						),
 						0
@@ -109,7 +112,10 @@ func GetReplicationAnalysis(clusterName string, hints *ReplicationAnalysisHints)
 					MIN(
 						master_instance.slave_sql_running = 1
 						AND master_instance.slave_io_running = 0
-						AND master_instance.last_io_error like '%error %connecting to master%'
+						AND (
+							master_instance.last_io_error like '%error %connecting to master%'
+							OR master_instance.last_io_error like '%error %connecting to source%'
+							)
 					)
 					/* AS is_failing_to_connect_to_master */
 				)
@@ -210,7 +216,10 @@ func GetReplicationAnalysis(clusterName string, hints *ReplicationAnalysisHints)
 			SUM(
 				replica_instance.last_checked <= replica_instance.last_seen
 				AND replica_instance.slave_io_running = 0
-				AND replica_instance.last_io_error like '%%error %%connecting to master%%'
+				AND (
+					replica_instance.last_io_error like '%%error %%connecting to master%%'
+				    OR replica_instance.last_io_error like '%%error %%connecting to source%%'
+				    )
 				AND replica_instance.slave_sql_running = 1
 			),
 			0
@@ -226,7 +235,10 @@ func GetReplicationAnalysis(clusterName string, hints *ReplicationAnalysisHints)
 		MIN(
 			master_instance.slave_sql_running = 1
 			AND master_instance.slave_io_running = 0
-			AND master_instance.last_io_error like '%%error %%connecting to master%%'
+			AND (
+				master_instance.last_io_error like '%%error %%connecting to master%%'
+				OR master_instance.last_io_error like '%%error %%connecting to source%%'
+				)
 		) AS is_failing_to_connect_to_master,
 		MIN(
 			master_downtime.downtime_active is not null
