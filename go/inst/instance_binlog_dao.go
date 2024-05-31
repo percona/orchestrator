@@ -133,11 +133,11 @@ func getLastPseudoGTIDEntryInBinlog(pseudoGTIDRegexp *regexp.Regexp, instanceKey
 }
 
 // getLastPseudoGTIDEntryInInstance will search for the last pseudo GTID entry in an instance's binary logs. Arguments:
-// - instance
-// - minBinlogCoordinates: a hint, suggested coordinates to start with. The search will _attempt_ to begin search from
-//   these coordinates, but if search is empty, then we failback to full search, ignoring this hint
-// - maxBinlogCoordinates: a hard limit on the maximum position we're allowed to investigate.
-// - exhaustiveSearch: when 'true', continue iterating binary logs. When 'false', only investigate most recent binary log.
+//   - instance
+//   - minBinlogCoordinates: a hint, suggested coordinates to start with. The search will _attempt_ to begin search from
+//     these coordinates, but if search is empty, then we failback to full search, ignoring this hint
+//   - maxBinlogCoordinates: a hard limit on the maximum position we're allowed to investigate.
+//   - exhaustiveSearch: when 'true', continue iterating binary logs. When 'false', only investigate most recent binary log.
 func getLastPseudoGTIDEntryInInstance(instance *Instance, minBinlogCoordinates *BinlogCoordinates, maxBinlogCoordinates *BinlogCoordinates, exhaustiveSearch bool) (*BinlogCoordinates, string, error) {
 	pseudoGTIDRegexp, err := compilePseudoGTIDPattern()
 	if err != nil {

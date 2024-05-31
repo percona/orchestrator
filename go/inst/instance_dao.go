@@ -70,11 +70,11 @@ func (this InstancesByCountReplicas) Less(i, j int) bool {
 }
 
 // InstancesByDc is a sortable type for Instance
-// 1. Instances are sorted by DC
-// 2. Within DC group instances are sorted by replicas count
-// 3. Within ReplicasCount group insances are:
-//    a) not sorted if ReplicasCount > 0
-//    b) sorted by replication lag if ReplicasCount == 0
+//  1. Instances are sorted by DC
+//  2. Within DC group instances are sorted by replicas count
+//  3. Within ReplicasCount group insances are:
+//     a) not sorted if ReplicasCount > 0
+//     b) sorted by replication lag if ReplicasCount == 0
 //
 // DC1 < DC2
 // if DC1 == DC2 => len(Replicas1) < len (Replicas2)
@@ -1209,9 +1209,9 @@ func (this byNamePort) Less(i, j int) bool {
 }
 
 // BulkReadInstance returns a list of all instances from the database
-// - I only need the Hostname and Port fields.
-// - I must use readInstancesByCondition to ensure all column
-//   settings are correct.
+//   - I only need the Hostname and Port fields.
+//   - I must use readInstancesByCondition to ensure all column
+//     settings are correct.
 func BulkReadInstance() ([](*InstanceKey), error) {
 	// no condition (I want all rows) and no sorting (but this is done by Hostname, Port anyway)
 	const (

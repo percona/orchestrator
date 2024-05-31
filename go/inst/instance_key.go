@@ -104,7 +104,6 @@ func NewRawInstanceKeyStrings(hostname string, port string) (*InstanceKey, error
 	return newInstanceKeyStrings(hostname, port, false)
 }
 
-//
 func (this *InstanceKey) ResolveHostname() (*InstanceKey, error) {
 	if !this.IsValid() {
 		return this, nil
