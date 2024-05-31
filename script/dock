@@ -22,17 +22,22 @@ else
   CI_ENV_BRANCH_ENV=${CI_ENV_BRANCH}
 fi
 
+if [[ ${MOUNT_TEST_DIR} == "YES" ]] ; then
+  DOCKER_EXTRA_ARGS="-v $PWD/tests/:/orchestrator/tests/"
+else
+  DOCKER_EXTRA_ARGS=
+fi
 
 command="$1"
 
 case "$command" in
   "test")
     docker_target="orchestrator-test"
-    docker build . -f docker/Dockerfile.test -t "${docker_target}" && docker run --rm -it --env TARBALL_URL=${TARBALL_URL} --env RUN_TESTS=${RUN_TESTS} --env ALLOW_TESTS_FAILURES=${ALLOW_TESTS_FAILURES} "${docker_target}:latest"
+    docker build . -f docker/Dockerfile.test -t "${docker_target}" && docker run --rm -it --env TARBALL_URL=${TARBALL_URL} --env RUN_TESTS=${RUN_TESTS} --env ALLOW_TESTS_FAILURES=${ALLOW_TESTS_FAILURES} ${DOCKER_EXTRA_ARGS} "${docker_target}:latest"
     ;;
   "test-no-it")
     docker_target="orchestrator-test"
-    docker build . -f docker/Dockerfile.test -t "${docker_target}" && docker run --rm --env TARBALL_URL=${TARBALL_URL} --env RUN_TESTS=${RUN_TESTS} --env ALLOW_TESTS_FAILURES=${ALLOW_TESTS_FAILURES} "${docker_target}:latest"
+    docker build . -f docker/Dockerfile.test -t "${docker_target}" && docker run --rm --env TARBALL_URL=${TARBALL_URL} --env RUN_TESTS=${RUN_TESTS} --env ALLOW_TESTS_FAILURES=${ALLOW_TESTS_FAILURES} ${DOCKER_EXTRA_ARGS} "${docker_target}:latest"
     ;;
   "alpine")
     docker_target="orchestrator-alpine"
@@ -61,11 +66,11 @@ case "$command" in
     ;;
   "system")
     docker_target="orchestrator-system"
-    docker build . -f docker/Dockerfile.system -t "${docker_target}" --build-arg ci_env_repo=${CI_ENV_REPO_ENV} --build-arg ci_env_branch=${CI_ENV_BRANCH_ENV} && docker run --rm -it -p 3000:3000 --env TARBALL_URL=${TARBALL_URL} --env RUN_TESTS=${RUN_TESTS} --env ALLOW_TESTS_FAILURES=${ALLOW_TESTS_FAILURES} "${docker_target}:latest"
+    docker build . -f docker/Dockerfile.system -t "${docker_target}" --build-arg ci_env_repo=${CI_ENV_REPO_ENV} --build-arg ci_env_branch=${CI_ENV_BRANCH_ENV} && docker run --rm -it -p 3000:3000 --env TARBALL_URL=${TARBALL_URL} --env RUN_TESTS=${RUN_TESTS} --env ALLOW_TESTS_FAILURES=${ALLOW_TESTS_FAILURES} ${DOCKER_EXTRA_ARGS} "${docker_target}:latest"
     ;;
   "system-no-it")
     docker_target="orchestrator-system"
-    docker build . -f docker/Dockerfile.system -t "${docker_target}" --build-arg ci_env_repo=${CI_ENV_REPO_ENV} --build-arg ci_env_branch=${CI_ENV_BRANCH_ENV} && docker run --rm --env TARBALL_URL=${TARBALL_URL} --env RUN_TESTS=${RUN_TESTS} --env ALLOW_TESTS_FAILURES=${ALLOW_TESTS_FAILURES} "${docker_target}:latest"
+    docker build . -f docker/Dockerfile.system -t "${docker_target}" --build-arg ci_env_repo=${CI_ENV_REPO_ENV} --build-arg ci_env_branch=${CI_ENV_BRANCH_ENV} && docker run --rm --env TARBALL_URL=${TARBALL_URL} --env RUN_TESTS=${RUN_TESTS} --env ALLOW_TESTS_FAILURES=${ALLOW_TESTS_FAILURES} ${DOCKER_EXTRA_ARGS} "${docker_target}:latest"
     ;;
   "raft")
     docker_target="orchestrator-raft"

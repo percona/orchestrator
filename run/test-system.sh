@@ -11,8 +11,11 @@ export TARBALL_URL=https://dev.mysql.com/get/Downloads/MySQL-8.4/mysql-8.4.0-lin
 export RUN_TESTS=YES
 export ALLOW_TESTS_FAILURES=YES
 
+# Mount test/ directory on docker
+#export MOUNT_TEST_DIR=YES
+
 # It is also possible to specify custom ci-env
 #export CI_ENV_REPO=https://github.com/kamil-holubicki/orchestrator-ci-env.git
-#export CI_ENV_BRANCH=DISTMYSQL-140
+#export CI_ENV_BRANCH=DISTMYSQL-421
 
 script/dock system
