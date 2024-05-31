@@ -4,6 +4,13 @@ validate_source_code_conventions() {
   echo "# Verifying code is formatted via 'gofmt -s -w  go/'"
   gofmt -s -w  go/
   git diff --exit-code --quiet go/
+  if [[ $? -ne 0 ]]; then
+    # Echo the message containing + FAIL string to allow Jenkins script to catch the failure.
+    echo "Code formatting check result: + FAIL"
+    git diff go/
+    exit 1    
+  fi
+  echo "Code formatting check result: PASSED"
 }
 
 validate_source_code_conventions

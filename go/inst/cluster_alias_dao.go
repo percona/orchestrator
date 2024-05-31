@@ -152,9 +152,9 @@ func updateClusterAliasesUsingReplace() error {
 //
 // The data which is going to be inserted originates from database_instance
 // table, in particular the following columns:
-// 1. `cluster_name` varchar(128) NOT NULL
-// 2. `suggested_cluster_alias` varchar(128) CHARACTER SET ascii COLLATE
-//	   ascii_general_ci NOT NULL
+//  1. `cluster_name` varchar(128) NOT NULL
+//  2. `suggested_cluster_alias` varchar(128) CHARACTER SET ascii COLLATE
+//     ascii_general_ci NOT NULL
 //
 // So it is possible to end up in the following situation when we use this
 // approach:

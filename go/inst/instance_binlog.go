@@ -51,12 +51,10 @@ type BinlogEvent struct {
 	Info         string
 }
 
-//
 func (this *BinlogEvent) NextBinlogCoordinates() BinlogCoordinates {
 	return BinlogCoordinates{LogFile: this.Coordinates.LogFile, LogPos: this.NextEventPos, Type: this.Coordinates.Type}
 }
 
-//
 func (this *BinlogEvent) NormalizeInfo() {
 	for reg, replace := range eventInfoTransformations {
 		this.Info = reg.ReplaceAllString(this.Info, replace)
@@ -76,7 +74,6 @@ func (this *BinlogEvent) EqualsIgnoreCoordinates(other *BinlogEvent) bool {
 
 const maxEmptyEventsEvents int = 10
 
-//
 type BinlogEventCursor struct {
 	cachedEvents      []BinlogEvent
 	currentEventIndex int
