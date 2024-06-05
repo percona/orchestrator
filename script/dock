@@ -23,7 +23,7 @@ else
 fi
 
 if [[ ${MOUNT_TEST_DIR} == "YES" ]] ; then
-  DOCKER_EXTRA_ARGS="-v $PWD/tests/:/orchestrator/tests/"
+  DOCKER_EXTRA_ARGS="--mount type=bind,source=$PWD/tests/,destination=/orchestrator/tests/"
 else
   DOCKER_EXTRA_ARGS=
 fi
