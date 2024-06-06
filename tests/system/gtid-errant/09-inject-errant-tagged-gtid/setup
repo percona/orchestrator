@@ -1,0 +1,61 @@
+#!/bin/bash
+
+set -e
+
+orchestrator-client -c topology-tabulated -alias ci
+orchestrator-client -c relocate -i 127.0.0.1:10114 -d 127.0.0.1:10113
+sleep 3
+
+uuid=$(mysql -BN -uci -pci -h 127.0.0.1 --port=10113 -e "select @@server_uuid;")
+
+cat > /tmp/gtid-errant.sql <<EOF
+set gtid_next="$uuid:tag1:1";
+begin;
+update test.heartbeat set hint="gtid-errant";
+commit;
+
+set gtid_next="$uuid:tag1:2";
+begin;
+update test.heartbeat set hint="gtid-errant";
+commit;
+
+set gtid_next="$uuid:tag1:4";
+begin;
+update test.heartbeat set hint="gtid-errant";
+commit;
+
+set gtid_next="$uuid:tag1:5";
+begin;
+update test.heartbeat set hint="gtid-errant";
+commit;
+
+set gtid_next="$uuid:tag1:7";
+begin;
+update test.heartbeat set hint="gtid-errant";
+commit;
+
+set gtid_next="$uuid:tag2:100";
+begin;
+update test.heartbeat set hint="gtid-errant";
+commit;
+
+set gtid_next="$uuid:tag2:101";
+begin;
+update test.heartbeat set hint="gtid-errant";
+commit;
+
+set gtid_next="$uuid:tag3:4";
+begin;
+update test.heartbeat set hint="gtid-errant";
+commit;
+
+set gtid_next="$uuid:tag3:5";
+begin;
+update test.heartbeat set hint="gtid-errant";
+commit;
+
+EOF
+
+mysql -uci -pci -h 127.0.0.1 --port=10113 < /tmp/gtid-errant.sql
+sleep 3
+rm /tmp/gtid-errant.sql

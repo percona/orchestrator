@@ -1,0 +1,25 @@
+#!/bin/bash
+
+echo "======== BEGIN ======="
+echo "Topology:"
+orchestrator-client -c topology-tabulated -alias ci
+
+echo
+echo "Errant GTID on all nodes:"
+orchestrator-client -c api -path all-instances | jq -r '.[].GtidErrant'
+
+echo
+echo "Errant GTID on 127.0.0.1:10113:"
+orchestrator-client -c which-gtid-errant -i 127.0.0.1:10113
+
+echo
+echo "Injecting empty gtids in place of errant gtids"
+orchestrator-client -c gtid-errant-inject-empty -i127.0.0.1:10113
+
+# Sleep for some time for it to inject empty gtids
+sleep 5
+
+echo
+echo "Errant GTIDs on all nodes (should be empty):"
+orchestrator-client -c api -path all-instances | jq -r '.[].GtidErrant'
+echo "======== END ======="
