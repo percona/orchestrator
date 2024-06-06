@@ -41,6 +41,12 @@ func TestNewOracleGtidSetEntry(t *testing.T) {
 		test.S(t).ExpectNotNil(err)
 	}
 	{
+		// Invalid tag name
+		uuidSet := "00020194-3333-3333-3333-333333333333:1-7:10-20:domain1.com:1"
+		_, err := NewOracleGtidSetEntry(uuidSet)
+		test.S(t).ExpectNotNil(err)
+	}
+	{
 		// Valid tag name but no interval after tag name
 		uuidSet := "00020194-3333-3333-3333-333333333333:1-7:10-20:tag1"
 		_, err := NewOracleGtidSetEntry(uuidSet)
@@ -96,7 +102,7 @@ func TestNewOracleGtidSetEntry(t *testing.T) {
 	}
 	{
 		// No default interval
-		uuidSet := "00020194-3333-3333-3333-333333333333:domain.com:1:51-56"
+		uuidSet := "00020194-3333-3333-3333-333333333333:domain:1:51-56"
 		entry, err := NewOracleGtidSetEntry(uuidSet)
 		test.S(t).ExpectNil(err)
 		test.S(t).ExpectEquals(entry.UUID, "00020194-3333-3333-3333-333333333333")
@@ -108,13 +114,13 @@ func TestNewOracleGtidSetEntry(t *testing.T) {
 		// There are two tagged interval ranges
 		test.S(t).ExpectEquals(len(entry.TaggedIv[0].Interval), 2)
 
-		test.S(t).ExpectEquals(entry.TaggedIv[0].Tag, "domain.com")
+		test.S(t).ExpectEquals(entry.TaggedIv[0].Tag, "domain")
 		test.S(t).ExpectEquals(entry.TaggedIv[0].Interval[0], "1")
 		test.S(t).ExpectEquals(entry.TaggedIv[0].Interval[1], "51-56")
 	}
 	{
 		// No default interval, multiple tagged intervals
-		uuidSet := "00020194-3333-3333-3333-333333333333:domain1.com:1:51-56:domain2.com:1-78:151-256:514"
+		uuidSet := "00020194-3333-3333-3333-333333333333:domain1:1:51-56:domain2:1-78:151-256:514"
 		entry, err := NewOracleGtidSetEntry(uuidSet)
 		test.S(t).ExpectNil(err)
 		test.S(t).ExpectEquals(entry.UUID, "00020194-3333-3333-3333-333333333333")
@@ -126,14 +132,14 @@ func TestNewOracleGtidSetEntry(t *testing.T) {
 		// tag 1 (domain1.com) has two interval ranges
 		test.S(t).ExpectEquals(len(entry.TaggedIv[0].Interval), 2)
 
-		test.S(t).ExpectEquals(entry.TaggedIv[0].Tag, "domain1.com")
+		test.S(t).ExpectEquals(entry.TaggedIv[0].Tag, "domain1")
 		test.S(t).ExpectEquals(entry.TaggedIv[0].Interval[0], "1")
 		test.S(t).ExpectEquals(entry.TaggedIv[0].Interval[1], "51-56")
 
 		// tag 2 (domain2.com) has three interval ranges
 		test.S(t).ExpectEquals(len(entry.TaggedIv[1].Interval), 3)
 
-		test.S(t).ExpectEquals(entry.TaggedIv[1].Tag, "domain2.com")
+		test.S(t).ExpectEquals(entry.TaggedIv[1].Tag, "domain2")
 		test.S(t).ExpectEquals(entry.TaggedIv[1].Interval[0], "1-78")
 		test.S(t).ExpectEquals(entry.TaggedIv[1].Interval[1], "151-256")
 		test.S(t).ExpectEquals(entry.TaggedIv[1].Interval[2], "514")

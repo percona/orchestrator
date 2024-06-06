@@ -32,10 +32,12 @@ var (
 
 	// Regex Pattern to match GTID tags
 	// Tag must start with a letter e.g. tag1 in uuid:tag1:1-5
-	tagRegex = regexp.MustCompile("^[a-z_][a-z0-9_]{0,31}")
+	tagRegex = regexp.MustCompile("^[a-z_][a-z0-9_]{0,31}$")
 )
 
-type TagInterval struct {
+// The below struct represents a tagged interval in GTID set.
+// It is private and should not be exported outside this package.
+type tagInterval struct {
 	Tag      string   // tag name
 	Interval []string // intervals
 }
@@ -51,7 +53,7 @@ type TagInterval struct {
 type OracleGtidSetEntry struct {
 	UUID      string
 	DefaultIv string        // default (untagged) interval
-	TaggedIv  []TagInterval // tagged intervals
+	TaggedIv  []tagInterval // tagged intervals
 }
 
 func ParseOracleGtidSetEntry(gtidRangeString string) (*OracleGtidSetEntry, error) {
@@ -78,40 +80,39 @@ func ParseOracleGtidSetEntry(gtidRangeString string) (*OracleGtidSetEntry, error
 	// Split the non-UUID parts into multiple blocks
 	s := strings.SplitN(gtid_str[1], ":", -1)
 
-	// Initialize the tag and interval
-	var default_iv string     // Default interval
-	var tag_ivs []TagInterval // Full tagged interval
-	var ti TagInterval        // Current tag interval
+	var default_iv string      // Default interval
+	var tag_ivs []tagInterval  // Full tagged interval
+	var tip *tagInterval = nil // Current tag interval
 
+	// Tagged intervals always follow untagged ones
+	// so once tip != nil it will never be nil again
 	for i := range s {
-
 		// If it is a GTID tag
 		if tagRegex.MatchString(s[i]) {
-
-			if (ti.Tag != "") && (len(ti.Interval) == 0) {
+			if tip != nil && (tip.Tag != "") && (len(tip.Interval) == 0) {
 				// If the tag is already set and we got another tag
-				return nil, fmt.Errorf("Invalid format")
-			} else if (ti.Tag == "") && (len(ti.Interval) != 0) {
-				// If the tag is not set and we already have the interval set
+				return nil, fmt.Errorf("Invalid format: Found a tag without any intervals")
+			} else if tip != nil && (tip.Tag == "") && (len(tip.Interval) != 0) {
+				// Should never happen - just in case
 				return nil, fmt.Errorf("Invalid format")
 			} else {
 				// Now process the new tag
-				ti.Tag = s[i]
-				// Reset iv for the current tag
-				ti.Interval = nil
+				ti := tagInterval{
+					Tag: s[i],
+				}
 				// Append the new tag to tag_ivs
 				tag_ivs = append(tag_ivs, ti)
+				tip = &tag_ivs[len(tag_ivs)-1]
 			}
 		} else {
-			// If it is an GTID interval
+			// If it is a GTID interval
 			if singleValueInterval.MatchString(s[i]) || multiValueInterval.MatchString(s[i]) {
 				// If it is an empty tag, add it to default interval
-				if len(ti.Tag) == 0 {
+				if tip == nil {
 					default_iv += ":" + s[i]
 				} else {
 					// If tag is already set, add it to the tag interval
-					ti.Interval = append(ti.Interval, s[i])
-					tag_ivs[len(tag_ivs)-1].Interval = append(tag_ivs[len(tag_ivs)-1].Interval, s[i])
+					tip.Interval = append(tip.Interval, s[i])
 				}
 			} else {
 				// Regex failed, invalid format
@@ -119,20 +120,14 @@ func ParseOracleGtidSetEntry(gtidRangeString string) (*OracleGtidSetEntry, error
 			}
 		}
 	}
-
 	// If the interval of the last tag is empty, then it is an invalid format
 	// eg: "UUID:1-5139::tag1:"
-	if (ti.Tag != "") && (len(tag_ivs[len(tag_ivs)-1].Interval) == 0) {
-		return nil, fmt.Errorf("Invalid format")
+	if tip != nil && (tip.Tag != "") && (len(tip.Interval) == 0) {
+		return nil, fmt.Errorf("Invalid format: Found a tag without any intervals")
 	}
-
 	// Don't append ':' for the first interval in the default set
-	if len(default_iv) != 0 {
-		default_iv, _ = strings.CutPrefix(default_iv, ":")
-	}
-
+	default_iv, _ = strings.CutPrefix(default_iv, ":")
 	entry := OracleGtidSetEntry{UUID: uuid, DefaultIv: default_iv, TaggedIv: tag_ivs}
-
 	return &entry, nil
 }
 
@@ -222,10 +217,10 @@ func (this *OracleGtidSetEntry) Explode() (result [](*OracleGtidSetEntry)) {
 				intervalEnd, _ := strconv.Atoi(submatch[2])
 				for i := intervalStart; i <= intervalEnd; i++ {
 
-					ti := TagInterval{
+					ti := tagInterval{
 						Tag:      tag,
 						Interval: []string{fmt.Sprintf("%d", i)}}
-					taggedIv := []TagInterval{ti}
+					taggedIv := []tagInterval{ti}
 
 					entry := OracleGtidSetEntry{UUID: this.UUID, TaggedIv: taggedIv}
 					result = append(result, &entry)
@@ -233,10 +228,10 @@ func (this *OracleGtidSetEntry) Explode() (result [](*OracleGtidSetEntry)) {
 			} else if submatch := singleValueInterval.FindStringSubmatch(interval); submatch != nil {
 
 				// Single-value interval
-				ti := TagInterval{
+				ti := tagInterval{
 					Tag:      tag,
 					Interval: []string{interval}}
-				taggedIv := []TagInterval{ti}
+				taggedIv := []tagInterval{ti}
 
 				entry := OracleGtidSetEntry{UUID: this.UUID, TaggedIv: taggedIv}
 				result = append(result, &entry)
