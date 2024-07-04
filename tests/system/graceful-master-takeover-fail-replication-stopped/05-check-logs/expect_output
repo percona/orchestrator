@@ -1,2 +1,2 @@
-ERROR GracefulMasterTakeover: promotion failed. Will set 127.0.0.1:10111 as read_write
+ERROR GracefulMasterTakeover: promotion failed. Will unset read-only on 127.0.0.1:10111
 INFO topology_recovery: Running PostUnsuccessfulGracefulTakeoverProcesses hook 1 of 1: echo 'Planned takeover failed for 127.0.0.1:10111'

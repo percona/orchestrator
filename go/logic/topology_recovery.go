@@ -2176,8 +2176,11 @@ func GracefulMasterTakeover(clusterName string, designatedKey *inst.InstanceKey,
 	topologyRecovery, promotedMasterCoordinates, err = gracefulMasterTakeover(demotedMasterSelfBinlogCoordinates, designatedInstance, analysisEntry)
 
 	if err != nil {
-		log.Errorf("GracefulMasterTakeover: promotion failed. Will set %+v as read_write", clusterMaster.Key)
-		inst.SetReadOnly(&clusterMaster.Key, false)
+		log.Errorf("GracefulMasterTakeover: promotion failed. Will unset read-only on %+v", clusterMaster.Key)
+
+		if _, unsetReadOnlyErr := inst.SetReadOnly(&clusterMaster.Key, false); unsetReadOnlyErr != nil {
+			log.Errorf("GracefulMasterTakeover: failed to unset read_only on %+v: %+v", clusterMaster.Key, unsetReadOnlyErr)
+		}
 
 		if topologyRecovery == nil {
 			// If we failed to run the recovery, use the info we already have
