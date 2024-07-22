@@ -27,5 +27,5 @@ Feedback and patches welcome.
 Simon J Mudd
 <sjmudd@pobox.com>
 
-### Code Documenton
+### Code Documentation
 [godoc.org/github.com/sjmudd/stopwatch](http://godoc.org/github.com/sjmudd/stopwatch)

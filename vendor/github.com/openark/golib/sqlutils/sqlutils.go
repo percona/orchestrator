@@ -190,13 +190,14 @@ type Logger interface {
 	OnError(context string, query string, err error) error
 	ValidateQuery(query string)
 }
+
 // it is also protected by knownDBsMutex
 var DB2logger map[*sql.DB]Logger = make(map[*sql.DB]Logger)
 
 // GetDB returns a DB instance based on uri.
 // logger parameter is optional. If nil, internal logging will be used.
 // bool result indicates whether the DB was returned from cache; err
-func GetGenericDB(driverName, dataSourceName string ,logger Logger) (*sql.DB, bool, error) {
+func GetGenericDB(driverName, dataSourceName string, logger Logger) (*sql.DB, bool, error) {
 	knownDBsMutex.Lock()
 	defer func() {
 		knownDBsMutex.Unlock()
@@ -234,7 +235,7 @@ func GetSQLiteDB(dbFile string, logger Logger) (*sql.DB, bool, error) {
 func RowToArray(rows *sql.Rows, columns []string) []CellData {
 	buff := make([]interface{}, len(columns))
 	data := make([]CellData, len(columns))
-	for i, _ := range buff {
+	for i := range buff {
 		buff[i] = data[i].NullString()
 	}
 	rows.Scan(buff...)
@@ -278,7 +279,7 @@ func ScanRowsToMaps(rows *sql.Rows, on_row func(RowMap) error) error {
 	return err
 }
 
-func logErrorInternal(context string, db *sql.DB, query string, err error) error{
+func logErrorInternal(context string, db *sql.DB, query string, err error) error {
 	// find logger registered by the client
 	knownDBsMutex.RLock()
 	defer knownDBsMutex.RUnlock()
@@ -293,7 +294,7 @@ func logErrorInternal(context string, db *sql.DB, query string, err error) error
 // QueryRowsMap is a convenience function allowing querying a result set while poviding a callback
 // function activated per read row.
 func QueryRowsMap(db *sql.DB, query string, on_row func(RowMap) error, args ...interface{}) (err error) {
-	validateQuery(query, db);
+	validateQuery(query, db)
 	defer func() {
 		if derr := recover(); derr != nil {
 			err = fmt.Errorf("QueryRowsMap unexpected error: %+v", derr)
