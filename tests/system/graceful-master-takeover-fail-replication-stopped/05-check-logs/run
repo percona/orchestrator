@@ -1,0 +1,3 @@
+# Read the logs generated after the test started, and check for the expected messages
+tail -n +$(cat /tmp/orchestrator.log.lines) /var/log/journal/orchestrator.service.log \
+  | grep -oP '(ERROR GracefulMasterTakeover: promotion failed|INFO topology_recovery: Running PostUnsuccessfulGracefulTakeoverProcesses hook).*'

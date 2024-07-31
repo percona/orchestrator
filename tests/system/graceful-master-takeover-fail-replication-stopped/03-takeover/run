@@ -1,0 +1,2 @@
+sleep 3
+orchestrator-client -c graceful-master-takeover -i 127.0.0.1:10111 -d 127.0.0.1:10112
