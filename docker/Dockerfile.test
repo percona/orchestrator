@@ -1,4 +1,4 @@
-FROM golang:1.22.3-bullseye
+FROM golang:1.22.5-bullseye
 LABEL maintainer="openark@github.com"
 
 RUN apt-get update
