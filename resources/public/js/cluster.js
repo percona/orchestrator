@@ -28,14 +28,24 @@ function Cluster() {
       return true;
     },
     "recover-suggested-successor": function(e) {
-      var suggestedSuccessorHost = $(e.target).attr("data-successor-host");
-      var suggestedSuccessorPort = $(e.target).attr("data-successor-port");
+      var suggestedSuccessorHost = $(e.currentTarget).attr("data-successor-host");
+      var suggestedSuccessorPort = $(e.currentTarget).attr("data-successor-port");
+      if ( typeof suggestedSuccessorHost === "undefined" || typeof suggestedSuccessorPort === "undefined")
+      {
+        addAlert("Unable to perform requested action, failed to get Destination HOST or PORT data.");
+        return false;
+      }
       apiCommand("/api/recover/" + _instancesMap[e.draggedNodeId].Key.Hostname + "/" + _instancesMap[e.draggedNodeId].Key.Port + "/" + suggestedSuccessorHost + "/" + suggestedSuccessorPort);
       return true;
     },
     "relocate-replicas": function(e) {
-      var belowHost = $(e.target).attr("data-successor-host");
-      var belowPort = $(e.target).attr("data-successor-port");
+      var belowHost = $(e.currentTarget).attr("data-successor-host");
+      var belowPort = $(e.currentTarget).attr("data-successor-port");
+      if ( typeof belowHost === "undefined" || typeof belowPort === "undefined")
+      {
+        addAlert("Unable to perform requested action, failed to get Destination HOST or PORT data.");
+        return false;
+      }
       apiCommand("/api/relocate-replicas/" + _instancesMap[e.draggedNodeId].Key.Hostname + "/" + _instancesMap[e.draggedNodeId].Key.Port + "/" + belowHost + "/" + belowPort);
       return true;
     },
