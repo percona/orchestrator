@@ -38,7 +38,7 @@
 #   orchestrator-client -c which-cluster-instances --alias mycluster
 #   orchestrator-client -c replication-analysis
 #   orchestrator-client -c register-candidate -i candidate.host.com:3306 --promotion-rule=prefer
-#   orchestrator-client -c recover -i failed.host.com:3306
+#   orchestrator-client -c recover -i failed.host.com:3306 [-d candidate.host.com:3306]
 
 # /etc/profile.d/orchestrator-client.sh is for you to set any environment.
 # In particular, you will want to set ORCHESTRATOR_API
@@ -786,6 +786,13 @@ function replication_analysis {
 function recover {
   assert_nonempty "instance" "$instance_hostport"
   api "recover/$instance_hostport"
+  if [ -z "$destination_hostport" ] ; then
+    # No destination given.
+    api "recover/$instance_hostport"
+  else
+    # Explicit destination (designated master) given
+    api "recover/$instance_hostport/$destination_hostport"
+  fi
   print_details | print_key
 }
 
@@ -1006,7 +1013,7 @@ function run_command {
     "purge-binary-logs") purge_binary_logs        ;; # Purge binary logs on an instance
     "last-pseudo-gtid") last_pseudo_gtid ;;          # Dump last injected Pseudo-GTID entry on a server
 
-    "recover") recover ;;                                     # Do auto-recovery given a dead instance, assuming orchestrator agrees there's a problem. Override blocking.
+    "recover") recover ;;                                     # Do auto-recovery given a dead instance and the optional hint for new master, assuming orchestrator agrees there's a problem. Override blocking.
     "graceful-master-takeover") graceful_master_takeover ;;   # Gracefully promote a new master. Either indicate identity of new master via '-d designated.instance.com' or setup replication tree to have a single direct replica to the master.
     "graceful-master-takeover-auto") graceful_master_takeover_auto ;; # Gracefully promote a new master. orchestrator will attempt to pick the promoted replica automatically
     "force-master-failover") force_master_failover ;;         # Forcibly discard master and initiate a failover, even if orchestrator doesn't see a problem. This command lets orchestrator choose the replacement master
