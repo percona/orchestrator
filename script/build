@@ -29,4 +29,6 @@ cd .gopath/src/github.com/openark/orchestrator
 # We put the binaries directly into the bindir, because we have no need for shim wrappers
 go build -o "$bindir/orchestrator" -ldflags "-X main.AppVersion=${version} -X main.BuildDescribe=${describe}" ./go/cmd/orchestrator/main.go
 
+chmod -R +w "${GOPATH}"
+
 rsync -qa ./resources $bindir/
