@@ -2,7 +2,7 @@
 
 echo "======== BEGIN ======="
 echo "Topology:"
-orchestrator-client -c topology-tabulated -alias ci
+orchestrator-client -c topology-tabulated -alias ci | cut -d '|' -f 1,2,3,5,6,7
 
 echo
 echo "Errant GTID on all nodes:"
