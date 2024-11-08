@@ -1,0 +1,2 @@
+# Store the current number of Orchestrator log lines
+wc -l </var/log/journal/orchestrator.service.log > /tmp/orchestrator.log.lines

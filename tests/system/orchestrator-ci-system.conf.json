@@ -76,6 +76,9 @@
   "PostGracefulTakeoverProcesses": [
     "echo 'Planned takeover complete' >> /tmp/recovery.log"
   ],
+  "PostUnsuccessfulGracefulTakeoverProcesses": [
+    "echo 'Planned takeover failed for {failedHost}:{failedPort}'"
+  ],
   "CoMasterRecoveryMustPromoteOtherCoMaster": true,
   "DetachLostSlavesAfterMasterFailover": true,
   "ApplyMySQLPromotionAfterMasterFailover": true,
