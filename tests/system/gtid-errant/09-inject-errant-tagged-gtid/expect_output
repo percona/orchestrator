@@ -1,9 +1,9 @@
 ======== BEGIN =======
 Topology:
-127.0.0.1:10111    |0s|ok|8.4.0|rw|ROW|>>,GTID       
-+ 127.0.0.1:10112  |0s|ok|8.4.0|ro|ROW|>>,GTID       
-+ 127.0.0.1:10113  |0s|ok|8.4.0|ro|ROW|>>,GTID:errant
-  + 127.0.0.1:10114|0s|ok|8.4.0|ro|ROW|>>,GTID       
+127.0.0.1:10111    |0s|ok|rw|ROW|>>,GTID
++ 127.0.0.1:10112  |0s|ok|ro|ROW|>>,GTID
++ 127.0.0.1:10113  |0s|ok|ro|ROW|>>,GTID:errant
+  + 127.0.0.1:10114|0s|ok|ro|ROW|>>,GTID
 
 Errant GTID on all nodes:
 
