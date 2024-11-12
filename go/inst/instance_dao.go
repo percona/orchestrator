@@ -1373,6 +1373,8 @@ func readInstanceRow(m sqlutils.RowMap) *Instance {
 		instance.Problems = append(instance.Problems, "group_replication_member_not_online")
 	}
 
+	instance.QSP = GetQueryStringProvider(instance.Version)
+
 	return instance
 }
 

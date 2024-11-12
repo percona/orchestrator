@@ -1766,20 +1766,22 @@ func getCheckAndRecoverFunction(analysisCode inst.AnalysisCode, analyzedInstance
 	return nil, false
 }
 
-func runEmergentOperations(analysisEntry *inst.ReplicationAnalysis) {
+func runEmergentOperations(analysisEntry *inst.ReplicationAnalysis, allowInstanceStateChanges bool) {
 	switch analysisEntry.Analysis {
 	case inst.DeadMasterAndReplicas:
 		go emergentlyReadTopologyInstance(&analysisEntry.AnalyzedInstanceMasterKey, analysisEntry.Analysis)
 	case inst.UnreachableMaster:
 		go emergentlyReadTopologyInstance(&analysisEntry.AnalyzedInstanceKey, analysisEntry.Analysis)
 		go emergentlyReadTopologyInstanceReplicas(&analysisEntry.AnalyzedInstanceKey, analysisEntry.Analysis)
-	case inst.UnreachableMasterWithLaggingReplicas:
-		go emergentlyRestartReplicationOnTopologyInstanceReplicas(&analysisEntry.AnalyzedInstanceKey, analysisEntry.Analysis)
 	case inst.LockedSemiSyncMasterHypothesis:
 		go emergentlyReadTopologyInstance(&analysisEntry.AnalyzedInstanceKey, analysisEntry.Analysis)
 		go emergentlyRecordStaleBinlogCoordinates(&analysisEntry.AnalyzedInstanceKey, &analysisEntry.AnalyzedInstanceBinlogCoordinates)
+	case inst.UnreachableMasterWithLaggingReplicas:
+		fallthrough
 	case inst.UnreachableIntermediateMasterWithLaggingReplicas:
-		go emergentlyRestartReplicationOnTopologyInstanceReplicas(&analysisEntry.AnalyzedInstanceKey, analysisEntry.Analysis)
+		if allowInstanceStateChanges {
+			go emergentlyRestartReplicationOnTopologyInstanceReplicas(&analysisEntry.AnalyzedInstanceKey, analysisEntry.Analysis)
+		}
 	case inst.AllMasterReplicasNotReplicating:
 		go emergentlyReadTopologyInstance(&analysisEntry.AnalyzedInstanceKey, analysisEntry.Analysis)
 	case inst.AllMasterReplicasNotReplicatingOrDead:
@@ -1795,9 +1797,15 @@ func executeCheckAndRecoverFunction(analysisEntry inst.ReplicationAnalysis, cand
 	atomic.AddInt64(&countPendingRecoveries, 1)
 	defer atomic.AddInt64(&countPendingRecoveries, -1)
 
+	recoveryDisabledGlobally, recerr := IsRecoveryDisabled()
+	// Check for recovery being disabled globally
+	if recerr != nil {
+		// Unexpected. Shouldn't get this
+		log.Errorf("Unable to determine if recovery is disabled globally: %v", recerr)
+	}
 	checkAndRecoverFunction, isActionableRecovery := getCheckAndRecoverFunction(analysisEntry.Analysis, &analysisEntry.AnalyzedInstanceKey)
 	analysisEntry.IsActionableRecovery = isActionableRecovery
-	runEmergentOperations(&analysisEntry)
+	runEmergentOperations(&analysisEntry, !recoveryDisabledGlobally || forceInstanceRecovery)
 
 	if checkAndRecoverFunction == nil {
 		// Unhandled problem type
@@ -1845,11 +1853,7 @@ func executeCheckAndRecoverFunction(analysisEntry inst.ReplicationAnalysis, cand
 
 	// We're about to embark on recovery shortly...
 
-	// Check for recovery being disabled globally
-	if recoveryDisabledGlobally, err := IsRecoveryDisabled(); err != nil {
-		// Unexpected. Shouldn't get this
-		log.Errorf("Unable to determine if recovery is disabled globally: %v", err)
-	} else if recoveryDisabledGlobally {
+	if recoveryDisabledGlobally {
 		if !forceInstanceRecovery {
 			log.Infof("CheckAndRecover: Analysis: %+v, InstanceKey: %+v, candidateInstanceKey: %+v, "+
 				"skipProcesses: %v: NOT Recovering host (disabled globally)",
