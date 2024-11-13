@@ -2218,6 +2218,11 @@ func GracefulMasterTakeover(clusterName string, designatedKey *inst.InstanceKey,
 		if err == nil {
 			err = enableSSLErr
 		}
+	} else {
+		_, enableSSLErr := inst.EnableMasterGetSourcePublicKey(&clusterMaster.Key)
+		if err == nil {
+			err = enableSSLErr
+		}
 	}
 	if auto {
 		_, startReplicationErr := inst.StartReplication(&clusterMaster.Key)

@@ -871,6 +871,32 @@ func ChangeMasterCredentials(instanceKey *InstanceKey, creds *ReplicationCredent
 	return instance, err
 }
 
+func EnableMasterGetSourcePublicKey(instanceKey *InstanceKey) (*Instance, error) {
+	instance, err := ReadTopologyInstance(instanceKey)
+	if err != nil {
+		return instance, log.Errore(err)
+	}
+
+	if instance.ReplicationThreadsExist() && !instance.ReplicationThreadsStopped() {
+		return instance, fmt.Errorf("EnableMasterGetSourcePublicKey: Cannot enable GetSourcePublicKey replication on %+v because replication threads are not stopped", *instanceKey)
+	}
+	log.Debugf("EnableMasterGetSourcePublicKey: Will attempt enabling GetSourcePublicKey replication on %+v", *instanceKey)
+
+	if *config.RuntimeCLIFlags.Noop {
+		return instance, fmt.Errorf("noop: aborting CHANGE REPLICATION SOURCE TO GET_SOURCE_PUBLIC_KEY=1 operation on %+v; signaling error but nothing went wrong.", *instanceKey)
+	}
+	_, err = ExecInstance(instanceKey, instance.QSP.change_master_to_get_source_public_key())
+
+	if err != nil {
+		return instance, log.Errore(err)
+	}
+
+	log.Infof("EnableMasterGetSourcePublicKey: Enabled GetSourcePublicKey replication on %+v", *instanceKey)
+
+	instance, err = ReadTopologyInstance(instanceKey)
+	return instance, err
+}
+
 // EnableMasterSSL issues CHANGE MASTER TO MASTER_SSL=1
 func EnableMasterSSL(instanceKey *InstanceKey) (*Instance, error) {
 	instance, err := ReadTopologyInstance(instanceKey)

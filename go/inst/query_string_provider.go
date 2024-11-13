@@ -53,6 +53,7 @@ const (
 	change_master_to_with_params
 	change_master_to_master_delay
 	set_sql_slave_skip_counter
+	change_master_to_get_source_public_key
 )
 
 func (qps *QueryStringProvider) log_slave_updates() string {
@@ -235,6 +236,10 @@ func (qps *QueryStringProvider) set_sql_slave_skip_counter() string {
 	return qps.queries[set_sql_slave_skip_counter]
 }
 
+func (qps *QueryStringProvider) change_master_to_get_source_public_key() string {
+	return qps.queries[change_master_to_get_source_public_key]
+}
+
 var queryStrings80 = map[QueryStringKey]string{
 	log_slave_updates:         "log_slave_updates",
 	start_slave:               "start slave",
@@ -282,6 +287,7 @@ var queryStrings80 = map[QueryStringKey]string{
 	change_master_to_with_params:                          "change master to %s",
 	change_master_to_master_delay:                         "change master to master_delay=%d",
 	set_sql_slave_skip_counter:                            "set global sql_slave_skip_counter := 1",
+	change_master_to_get_source_public_key:                "select 1",
 }
 
 var queryStrings84 = map[QueryStringKey]string{
@@ -331,6 +337,7 @@ var queryStrings84 = map[QueryStringKey]string{
 	change_master_to_with_params:                          "change replication source to %s",
 	change_master_to_master_delay:                         "change replication source to source_delay=%d",
 	set_sql_slave_skip_counter:                            "set global sql_replica_skip_counter := 1",
+	change_master_to_get_source_public_key:                "change replication source to get_source_public_key=1",
 }
 
 var queryStringProvider80 = QueryStringProvider{

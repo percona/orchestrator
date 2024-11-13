@@ -1037,6 +1037,11 @@ func MakeCoMaster(instanceKey *InstanceKey) (*Instance, error) {
 		if err != nil {
 			goto Cleanup
 		}
+	} else {
+		_, err = EnableMasterGetSourcePublicKey(&master.Key)
+		if err != nil {
+			goto Cleanup
+		}
 	}
 
 	if instance.UsingOracleGTID {
