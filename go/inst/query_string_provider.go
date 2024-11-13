@@ -1,7 +1,5 @@
 package inst
 
-import "strings"
-
 type QueryStringKey int
 
 type QueryStringProvider struct {
@@ -344,7 +342,7 @@ var queryStringProvider84 = QueryStringProvider{
 }
 
 func GetQueryStringProvider(version string) QueryStringProvider {
-	if strings.HasPrefix(version, "8.4") {
+	if version >= "8.4" {
 		return queryStringProvider84
 	}
 	return queryStringProvider80
