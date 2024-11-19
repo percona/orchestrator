@@ -19,6 +19,8 @@ export deploy_replication_file=/tmp/deploy_replication.log
 tests_todo_file=/tmp/system-tests-todo.txt
 tests_successful_file=/tmp/system-tests-successful.txt
 tests_failed_file=/tmp/system-tests-failed.txt
+unstable_tests=
+failed_tests=
 
 exec_cmd() {
   echo "$@"
@@ -220,6 +222,9 @@ test_single() {
     return 1
   fi
 
+  echo "Waiting for 10 sec before checking if cluster restore went fine"
+  sleep 10
+  echo "Checking topology after restore..."
   bash $tests_path/check_restore > $test_restore_outfile
   diff -b $tests_path/expect_restore $test_restore_outfile > $test_restore_diff_file
   diff_result=$?
@@ -231,6 +236,7 @@ test_single() {
     echo "---"
     return 1
   fi
+  echo "Checking topology after restore...OK"
 }
 
 test_listed_as_successful() {
@@ -354,8 +360,10 @@ test_all() {
           ((passed_cnt++))
         elif [ "${test_status}" == "UNSTABLE" ] ; then
           ((unstable_cnt++))
+          unstable_tests+="${test_name} "
         elif [ "${test_status}" == "FAILED" ] ; then
           ((failed_cnt++))
+          failed_tests+="${test_name} "
         else
           echo "Unexpected test_status: ${test_status}"
         fi
@@ -376,6 +384,12 @@ test_all() {
   echo "PASSED:   ${passed_cnt}/${total_cnt}/${expected_cnt}"
   echo "UNSTABLE: ${unstable_cnt}/${total_cnt}/${expected_cnt}"
   echo "FAILED:   ${failed_cnt}/${total_cnt}/${expected_cnt}"
+  if [[ -n ${unstable_tests} ]]; then
+    echo "UNSTABLE TESTS: ${unstable_tests}"
+  fi
+  if [[ -n ${failed_tests} ]]; then
+    echo "FAILED TESTS: ${failed_tests}"
+  fi
   if [ ${total_cnt} -ne ${expected_cnt} ] ; then
     echo "WARNING! Some tests were skipped. Expected: ${expected_cnt}, executed: ${total_cnt}"
   fi

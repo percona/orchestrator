@@ -4,5 +4,6 @@ for i in $(seq 1 10) ; do
   if "$@" ; then
     exit 0
   fi
+  sleep 1
 done
 exit 1
