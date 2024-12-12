@@ -1,0 +1,5 @@
+{
+  "PostUnsuccessfulGracefulTakeoverProcesses": [
+    "echo 'Planned takeover failed for {failedHost}:{failedPort}'"
+  ]
+}
