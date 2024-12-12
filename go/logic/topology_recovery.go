@@ -2232,7 +2232,6 @@ func gracefulMasterTakeover(demotedMasterSelfBinlogCoordinates *inst.BinlogCoord
 	recoveryAttempted, topologyRecovery, err := ForceExecuteRecovery(analysisEntry, &designatedInstance.Key, false)
 	if err != nil {
 		log.Errorf("GracefulMasterTakeover: noting an error, and for now proceeding: %+v", err)
-		err = nil
 	}
 	if !recoveryAttempted {
 		return nil, nil, fmt.Errorf("GracefulMasterTakeover: unexpected error: recovery not attempted. This should not happen")
@@ -2243,6 +2242,9 @@ func gracefulMasterTakeover(demotedMasterSelfBinlogCoordinates *inst.BinlogCoord
 
 	if topologyRecovery.SuccessorKey == nil {
 		err = fmt.Errorf("GracefulMasterTakeover: Recovery attempted yet no replica promoted; err=%+v", err)
+	} else {
+		// Clear the error if all previous checks succeeded
+		err = nil
 	}
 
 	return topologyRecovery, promotedMasterCoordinates, err
