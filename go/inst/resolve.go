@@ -19,14 +19,15 @@ package inst
 import (
 	"errors"
 	"fmt"
-	"github.com/openark/golib/log"
-	"github.com/openark/orchestrator/go/config"
-	"github.com/patrickmn/go-cache"
 	"net"
 	"regexp"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/openark/golib/log"
+	"github.com/openark/orchestrator/go/config"
+	"github.com/patrickmn/go-cache"
 )
 
 type HostnameResolve struct {
