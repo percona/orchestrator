@@ -21,6 +21,7 @@ tests_successful_file=/tmp/system-tests-successful.txt
 tests_failed_file=/tmp/system-tests-failed.txt
 unstable_tests=
 failed_tests=
+skipped_tests=
 
 exec_cmd() {
   echo "$@"
@@ -187,6 +188,14 @@ test_step() {
 test_single() {
   local test_name="$1"
 
+  if [ -f $tests_path/$test_name/run_condition ] ; then
+    bash $tests_path/$test_name/run_condition
+    if [ $? -ne 0 ] ; then
+      echo "Skipping execution of test $test_name, because its run condition is not met"
+      return 2
+    fi
+  fi
+
   bash $tests_path/setup 1> $setup_teardown_logfile 2>&1
   if [ $? -ne 0 ] ; then
     echo "ERROR global setup failed"
@@ -310,6 +319,7 @@ test_all() {
   local passed_cnt=0
   local unstable_cnt=0
   local failed_cnt=0
+  local skipped_cnt=0
   local total_cnt=0
   local expected_cnt=`find $tests_path -mindepth 1 -maxdepth 1 ! -path . -type d | wc -l`
 
@@ -336,13 +346,17 @@ test_all() {
           fi
           test_single "$test_name"
           test_single_result=$?
-          if [ $test_single_result -eq 0 ] ; then
+          if [[ $test_single_result -eq 0 || $test_single_result -eq 2 ]] ; then
             break
           fi
         done
         if [ $test_single_result -eq 0 ] ; then
           echo "Test finished. Testname: ${test_name} status: ${test_status}"
           echo "$test_name" >> $tests_successful_file
+        elif [ $test_single_result -eq 2 ] ; then
+          test_status="SKIPPED"
+          echo "Test finished. Testname: ${test_name} status: ${test_status}"
+          echo "$test_name" >> $tests_successful_file        
         else
           echo "$test_name" >> $tests_failed_file
           test_status="FAILED"
@@ -361,6 +375,9 @@ test_all() {
         elif [ "${test_status}" == "UNSTABLE" ] ; then
           ((unstable_cnt++))
           unstable_tests+="${test_name} "
+        elif [ "${test_status}" == "SKIPPED" ] ; then
+          ((skipped_cnt++))
+          skipped_tests+="${test_name} "
         elif [ "${test_status}" == "FAILED" ] ; then
           ((failed_cnt++))
           failed_tests+="${test_name} "
@@ -383,9 +400,13 @@ test_all() {
   echo "Test results (cnt/executed_tests_cnt/total_tests_count):"
   echo "PASSED:   ${passed_cnt}/${total_cnt}/${expected_cnt}"
   echo "UNSTABLE: ${unstable_cnt}/${total_cnt}/${expected_cnt}"
+  echo "SKIPPED:  ${skipped_cnt}/${total_cnt}/${expected_cnt}"
   echo "FAILED:   ${failed_cnt}/${total_cnt}/${expected_cnt}"
   if [[ -n ${unstable_tests} ]]; then
     echo "UNSTABLE TESTS: ${unstable_tests}"
+  fi
+  if [[ -n ${skipped_tests} ]]; then
+    echo "SKIPPED TESTS: ${skipped_tests}"
   fi
   if [[ -n ${failed_tests} ]]; then
     echo "FAILED TESTS: ${failed_tests}"

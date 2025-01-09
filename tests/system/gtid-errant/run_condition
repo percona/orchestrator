@@ -1,0 +1,18 @@
+#!/bin/bash
+#
+# If this script is present, and it returns zero, the test is executed.
+# Otherwise the test is skipped.
+
+set -e
+
+mysql_version=$(mysql -uci -pci -h 127.0.0.1 --port=10111 -e "select @@global.version" -s -N)
+
+required_version="8.4.0"
+
+echo "run_condition script: mysql_version: ${mysql_version}, required_version: ${required_version}"
+
+if [[ "$mysql_version" < "$required_version" ]]; then
+  exit 1
+fi
+
+exit 0
