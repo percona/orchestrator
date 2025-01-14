@@ -69,6 +69,15 @@ func StopMonitoring() {
 	}
 }
 
+func ReturnQueue(name string) *Queue {
+	dcLock.Lock()
+	defer dcLock.Unlock()
+	if q, found := discoveryQueue[name]; found {
+		return q
+	}
+	return nil
+}
+
 // CreateOrReturnQueue allows for creation of a new discovery queue or
 // returning a pointer to an existing one given the name.
 func CreateOrReturnQueue(name string) *Queue {
