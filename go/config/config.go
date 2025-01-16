@@ -267,6 +267,8 @@ type Configuration struct {
 	DiscoveryIgnoreReplicaHostnameFilters      []string          // Regexp filters to apply to prevent auto-discovering new replicas. Usage: unreachable servers due to firewalls, applications which trigger binlog dumps
 	DiscoveryIgnoreMasterHostnameFilters       []string          // Regexp filters to apply to prevent auto-discovering a master. Usage: pointing your master temporarily to replicate some data from external host
 	DiscoveryIgnoreHostnameFilters             []string          // Regexp filters to apply to prevent discovering instances of any kind
+	DiscoveryIgnoreReplicationUsernameFilters  []string          // Regexp filters to apply to prevent discovering instances that use a matching replication username
+	EnableDiscoveryFiltersLogs                 bool              // Should Orchestrator log the fact of filtered instance during discovery
 	ConsulAddress                              string            // Address where Consul HTTP api is found. Example: 127.0.0.1:8500
 	ConsulScheme                               string            // Scheme (http or https) for Consul
 	ConsulAclToken                             string            // ACL token used to write to Consul KV
@@ -445,6 +447,8 @@ func newConfiguration() *Configuration {
 		GraphitePollSeconds:                        60,
 		URLPrefix:                                  "",
 		DiscoveryIgnoreReplicaHostnameFilters:      []string{},
+		DiscoveryIgnoreReplicationUsernameFilters:  []string{},
+		EnableDiscoveryFiltersLogs:                 true,
 		ConsulAddress:                              "",
 		ConsulScheme:                               "http",
 		ConsulAclToken:                             "",

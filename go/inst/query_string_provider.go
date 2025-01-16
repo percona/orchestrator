@@ -1,5 +1,7 @@
 package inst
 
+import "unicode"
+
 type QueryStringKey int
 
 type QueryStringProvider struct {
@@ -349,8 +351,14 @@ var queryStringProvider84 = QueryStringProvider{
 }
 
 func GetQueryStringProvider(version string) QueryStringProvider {
+	// always fall back to 8.0 provider
+	if len(version) == 0 || !unicode.IsDigit(rune(version[0])) {
+		return queryStringProvider80
+	}
+
 	if version >= "8.4" {
 		return queryStringProvider84
 	}
+
 	return queryStringProvider80
 }

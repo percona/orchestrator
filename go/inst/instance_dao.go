@@ -226,7 +226,14 @@ func logReadTopologyInstanceError(instanceKey *InstanceKey, hint string, err err
 // server and writes the result synchronously to the orchestrator
 // backend.
 func ReadTopologyInstance(instanceKey *InstanceKey) (*Instance, error) {
-	return ReadTopologyInstanceBufferable(instanceKey, false, nil)
+	instance, skipped, err := ReadTopologyInstanceBufferable(instanceKey, false, nil)
+	if skipped {
+		if config.Config.EnableDiscoveryFiltersLogs {
+			log.Infof("Skipping discovery of %+v because its replication user matches DiscoveryIgnoreReplicationUsernameFilters", instanceKey)
+		}
+		instance = nil
+	}
+	return instance, err
 }
 
 // ReadTopologyInstances is a convenience method that calls ReadTopologyInstance
@@ -343,7 +350,7 @@ func expectReplicationThreadsState(instance *Instance, instanceKey *InstanceKey,
 // It writes the information retrieved into orchestrator's backend.
 // - writes are optionally buffered.
 // - timing information can be collected for the stages performed.
-func ReadTopologyInstanceBufferable(instanceKey *InstanceKey, bufferWrites bool, latency *stopwatch.NamedStopwatch) (inst *Instance, err error) {
+func ReadTopologyInstanceBufferable(instanceKey *InstanceKey, bufferWrites bool, latency *stopwatch.NamedStopwatch) (inst *Instance, skipped bool, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = logReadTopologyInstanceError(instanceKey, "Unexpected, aborting", fmt.Errorf("%+v", r))
@@ -364,6 +371,10 @@ func ReadTopologyInstanceBufferable(instanceKey *InstanceKey, bufferWrites bool,
 	slaveStatusFound := false
 	errorChan := make(chan error, 32)
 	var resolveErr error
+	instanceDiscoverySkipped := false
+	masterHostnameTmp := ""
+	var masterPortTmp int
+	var masterKey *InstanceKey
 
 	if !instanceKey.IsValid() {
 		latency.Start("backend")
@@ -371,7 +382,7 @@ func ReadTopologyInstanceBufferable(instanceKey *InstanceKey, bufferWrites bool,
 			log.Errorf("ReadTopologyInstanceBufferable: %+v: %v", instanceKey, err)
 		}
 		latency.Stop("backend")
-		return instance, fmt.Errorf("ReadTopologyInstance will not act on invalid instance key: %+v", *instanceKey)
+		return instance, instanceDiscoverySkipped, fmt.Errorf("ReadTopologyInstance will not act on invalid instance key: %+v", *instanceKey)
 	}
 
 	lastAttemptedCheckTimer := time.AfterFunc(time.Second, func() {
@@ -430,7 +441,91 @@ func ReadTopologyInstanceBufferable(instanceKey *InstanceKey, bufferWrites bool,
 		}
 	} else {
 		// NOT MaxScale
+		err = db.QueryRow("select @@global.version").Scan(&instance.Version)
+		if err != nil {
+			goto Cleanup
+		}
+	}
 
+	instance.QSP = GetQueryStringProvider(instance.Version)
+
+	instance.ReplicationIOThreadState = ReplicationThreadStateNoThread
+	instance.ReplicationSQLThreadState = ReplicationThreadStateNoThread
+
+	// Learn if this instance should be filtered out because of replication user
+	// matching DiscoveryIgnoreReplicationUsernameFilters ASAP.
+	// If we got here with such an instance it means we are handling a corner case
+	// When source was discovered, we checked for its replicas (below in this function)
+	// If we were able to figure out the replica username, replica instance was already
+	// filtered out and we don't get here with the replica.
+	// However it may be that the replica is not reporting its replication username
+	// to the source (e.g. DiscoverByShowSlaveHosts=true but source and replica have not
+	// set show-replica-auth-info=1 and report_user set accordingly). In such a case
+	// replica will not be filtered out during source examination and will go to discovery
+	// queue. This is how we get here with the replica.
+	err = sqlutils.QueryRowsMap(db, instance.QSP.show_slave_status(), func(m sqlutils.RowMap) error {
+		user := m.GetString(instance.QSP.master_user())
+
+		if FiltersMatchReplicationIgnoreUsername(user, config.Config.DiscoveryIgnoreReplicationUsernameFilters) {
+			err = fmt.Errorf("Host %+v is excluded from discovery by DiscoveryIgnoreReplicationUsernameFilters.", *instanceKey)
+			instanceDiscoverySkipped = true
+			return err
+		}
+
+		instance.HasReplicationCredentials = (user != "")
+		instance.ReplicationIOThreadState = ReplicationThreadStateFromStatus(m.GetString(instance.QSP.slave_io_running()))
+		instance.ReplicationSQLThreadState = ReplicationThreadStateFromStatus(m.GetString(instance.QSP.slave_sql_running()))
+		instance.ReplicationIOThreadRuning = instance.ReplicationIOThreadState.IsRunning()
+		if isMaxScale110 {
+			// Covering buggy MaxScale 1.1.0
+			instance.ReplicationIOThreadRuning = instance.ReplicationIOThreadRuning && (m.GetString(instance.QSP.slave_io_state()) == "Binlog Dump")
+		}
+		instance.ReplicationSQLThreadRuning = instance.ReplicationSQLThreadState.IsRunning()
+		instance.ReadBinlogCoordinates.LogFile = m.GetString(instance.QSP.master_log_file())
+		instance.ReadBinlogCoordinates.LogPos = m.GetInt64(instance.QSP.read_master_log_pos())
+		instance.ExecBinlogCoordinates.LogFile = m.GetString(instance.QSP.relay_master_log_file())
+		instance.ExecBinlogCoordinates.LogPos = m.GetInt64(instance.QSP.relay_master_log_position())
+		instance.IsDetached, _ = instance.ExecBinlogCoordinates.ExtractDetachedCoordinates()
+		instance.RelaylogCoordinates.LogFile = m.GetString("Relay_Log_File")
+		instance.RelaylogCoordinates.LogPos = m.GetInt64("Relay_Log_Pos")
+		instance.RelaylogCoordinates.Type = RelayLog
+		instance.LastSQLError = emptyQuotesRegexp.ReplaceAllString(strconv.QuoteToASCII(m.GetString("Last_SQL_Error")), "")
+		instance.LastIOError = emptyQuotesRegexp.ReplaceAllString(strconv.QuoteToASCII(m.GetString("Last_IO_Error")), "")
+		instance.SQLDelay = m.GetUintD("SQL_Delay", 0)
+		instance.UsingOracleGTID = (m.GetIntD("Auto_Position", 0) == 1)
+		instance.UsingMariaDBGTID = (m.GetStringD("Using_Gtid", "No") != "No")
+		instance.MasterUUID = m.GetStringD(instance.QSP.master_uuid(), "No")
+		instance.HasReplicationFilters = ((m.GetStringD("Replicate_Do_DB", "") != "") || (m.GetStringD("Replicate_Ignore_DB", "") != "") || (m.GetStringD("Replicate_Do_Table", "") != "") || (m.GetStringD("Replicate_Ignore_Table", "") != "") || (m.GetStringD("Replicate_Wild_Do_Table", "") != "") || (m.GetStringD("Replicate_Wild_Ignore_Table", "") != ""))
+
+		// Remember master hostname:port. Once we update resolve cache below
+		// we will use it to set instance's members
+		masterHostnameTmp = m.GetString(instance.QSP.master_host())
+		if isMaxScale110 {
+			// Buggy buggy maxscale 1.1.0. Reported Master_Host can be corrupted.
+			// Therefore we (currently) take @@hostname (which is masquarading as master host anyhow)
+			masterHostnameTmp = maxScaleMasterHostname
+		}
+		masterPortTmp = m.GetInt(instance.QSP.master_port())
+
+		instance.IsDetachedMaster = instance.MasterKey.IsDetached()
+		instance.SecondsBehindMaster = m.GetNullInt64(instance.QSP.seconds_behind_master())
+		if instance.SecondsBehindMaster.Valid && instance.SecondsBehindMaster.Int64 < 0 {
+			log.Warningf("Host: %+v, instance.SecondsBehindMaster < 0 [%+v], correcting to 0", instanceKey, instance.SecondsBehindMaster.Int64)
+			instance.SecondsBehindMaster.Int64 = 0
+		}
+		// And until told otherwise:
+		instance.ReplicationLagSeconds = instance.SecondsBehindMaster
+
+		instance.AllowTLS = (m.GetString(instance.QSP.master_ssl_allowed()) == "Yes")
+		// Not breaking the flow even on error
+		slaveStatusFound = true
+		return nil
+	})
+	if err != nil {
+		goto Cleanup
+	}
+
+	if !isMaxScale {
 		// We begin with a few operations we can run concurrently, and which do not depend on anything
 		{
 			waitGroup.Add(1)
@@ -454,12 +549,8 @@ func ReadTopologyInstanceBufferable(instanceKey *InstanceKey, bufferWrites bool,
 			}()
 		}
 
+		// Synchronously query for some params needed in following go routines
 		var mysqlHostname, mysqlReportHost string
-		err = db.QueryRow("select @@global.version").Scan(&instance.Version)
-		if err != nil {
-			goto Cleanup
-		}
-		instance.QSP = GetQueryStringProvider(instance.Version)
 		err = db.QueryRow("select @@global.hostname, ifnull(@@global.report_host, ''), @@global.server_id, @@global.version_comment, @@global.read_only, @@global.binlog_format, @@global.log_bin, @@global."+instance.QSP.log_slave_updates()).Scan(
 			&mysqlHostname, &mysqlReportHost, &instance.ServerID, &instance.VersionComment, &instance.ReadOnly, &instance.Binlog_format, &instance.LogBinEnabled, &instance.LogReplicationUpdatesEnabled)
 		if err != nil {
@@ -611,6 +702,7 @@ func ReadTopologyInstanceBufferable(instanceKey *InstanceKey, bufferWrites bool,
 			}()
 		}
 	}
+	log.Infof("Instance %+v, resolvedHostname %+v", instance.Key, resolvedHostname)
 	if resolvedHostname != instance.Key.Hostname {
 		latency.Start("backend")
 		UpdateResolvedHostname(instance.Key.Hostname, resolvedHostname)
@@ -650,41 +742,9 @@ func ReadTopologyInstanceBufferable(instanceKey *InstanceKey, bufferWrites bool,
 		// This can be overriden by later invocation of DetectPhysicalEnvironmentQuery
 	}
 
-	instance.ReplicationIOThreadState = ReplicationThreadStateNoThread
-	instance.ReplicationSQLThreadState = ReplicationThreadStateNoThread
-	err = sqlutils.QueryRowsMap(db, instance.QSP.show_slave_status(), func(m sqlutils.RowMap) error {
-		instance.HasReplicationCredentials = (m.GetString(instance.QSP.master_user()) != "")
-		instance.ReplicationIOThreadState = ReplicationThreadStateFromStatus(m.GetString(instance.QSP.slave_io_running()))
-		instance.ReplicationSQLThreadState = ReplicationThreadStateFromStatus(m.GetString(instance.QSP.slave_sql_running()))
-		instance.ReplicationIOThreadRuning = instance.ReplicationIOThreadState.IsRunning()
-		if isMaxScale110 {
-			// Covering buggy MaxScale 1.1.0
-			instance.ReplicationIOThreadRuning = instance.ReplicationIOThreadRuning && (m.GetString(instance.QSP.slave_io_state()) == "Binlog Dump")
-		}
-		instance.ReplicationSQLThreadRuning = instance.ReplicationSQLThreadState.IsRunning()
-		instance.ReadBinlogCoordinates.LogFile = m.GetString(instance.QSP.master_log_file())
-		instance.ReadBinlogCoordinates.LogPos = m.GetInt64(instance.QSP.read_master_log_pos())
-		instance.ExecBinlogCoordinates.LogFile = m.GetString(instance.QSP.relay_master_log_file())
-		instance.ExecBinlogCoordinates.LogPos = m.GetInt64(instance.QSP.relay_master_log_position())
-		instance.IsDetached, _ = instance.ExecBinlogCoordinates.ExtractDetachedCoordinates()
-		instance.RelaylogCoordinates.LogFile = m.GetString("Relay_Log_File")
-		instance.RelaylogCoordinates.LogPos = m.GetInt64("Relay_Log_Pos")
-		instance.RelaylogCoordinates.Type = RelayLog
-		instance.LastSQLError = emptyQuotesRegexp.ReplaceAllString(strconv.QuoteToASCII(m.GetString("Last_SQL_Error")), "")
-		instance.LastIOError = emptyQuotesRegexp.ReplaceAllString(strconv.QuoteToASCII(m.GetString("Last_IO_Error")), "")
-		instance.SQLDelay = m.GetUintD("SQL_Delay", 0)
-		instance.UsingOracleGTID = (m.GetIntD("Auto_Position", 0) == 1)
-		instance.UsingMariaDBGTID = (m.GetStringD("Using_Gtid", "No") != "No")
-		instance.MasterUUID = m.GetStringD(instance.QSP.master_uuid(), "No")
-		instance.HasReplicationFilters = ((m.GetStringD("Replicate_Do_DB", "") != "") || (m.GetStringD("Replicate_Ignore_DB", "") != "") || (m.GetStringD("Replicate_Do_Table", "") != "") || (m.GetStringD("Replicate_Ignore_Table", "") != "") || (m.GetStringD("Replicate_Wild_Do_Table", "") != "") || (m.GetStringD("Replicate_Wild_Ignore_Table", "") != ""))
-
-		masterHostname := m.GetString(instance.QSP.master_host())
-		if isMaxScale110 {
-			// Buggy buggy maxscale 1.1.0. Reported Master_Host can be corrupted.
-			// Therefore we (currently) take @@hostname (which is masquarading as master host anyhow)
-			masterHostname = maxScaleMasterHostname
-		}
-		masterKey, err := NewResolveInstanceKey(masterHostname, m.GetInt(instance.QSP.master_port()))
+	if slaveStatusFound {
+		// Resolve cache has been updated, so we can finalize resolving master
+		masterKey, err = NewResolveInstanceKey(masterHostnameTmp, masterPortTmp)
 		if err != nil {
 			logReadTopologyInstanceError(instanceKey, "NewResolveInstanceKey", err)
 		}
@@ -694,22 +754,8 @@ func ReadTopologyInstanceBufferable(instanceKey *InstanceKey, bufferWrites bool,
 		}
 		instance.MasterKey = *masterKey
 		instance.IsDetachedMaster = instance.MasterKey.IsDetached()
-		instance.SecondsBehindMaster = m.GetNullInt64(instance.QSP.seconds_behind_master())
-		if instance.SecondsBehindMaster.Valid && instance.SecondsBehindMaster.Int64 < 0 {
-			log.Warningf("Host: %+v, instance.SecondsBehindMaster < 0 [%+v], correcting to 0", instanceKey, instance.SecondsBehindMaster.Int64)
-			instance.SecondsBehindMaster.Int64 = 0
-		}
-		// And until told otherwise:
-		instance.ReplicationLagSeconds = instance.SecondsBehindMaster
-
-		instance.AllowTLS = (m.GetString(instance.QSP.master_ssl_allowed()) == "Yes")
-		// Not breaking the flow even on error
-		slaveStatusFound = true
-		return nil
-	})
-	if err != nil {
-		goto Cleanup
 	}
+
 	// Populate GR information for the instance in Oracle MySQL 8.0+ or Percona Server 8.0+. To do this we need to wait
 	// for the Server UUID to be populated to be able to find this instance's information in
 	// performance_schema.replication_group_members by comparing UUIDs. We could instead resolve the MEMBER_HOST and
@@ -752,6 +798,21 @@ func ReadTopologyInstanceBufferable(instanceKey *InstanceKey, bufferWrites bool,
 
 	// Get replicas, either by SHOW SLAVE HOSTS or via PROCESSLIST
 	// MaxScale does not support PROCESSLIST, so SHOW SLAVE HOSTS is the only option
+	//
+	// Filtered out replicas (config.DiscoveryIgnoreReplicationUsernameFilters)
+	// will be skipped, but only if source (this host) is provided with the information
+	// about replica's replication user name.
+	// 1. In case of DiscoverByShowSlaveHosts=true, it will be the case only if
+	//    source is started with --show-replica-auth-info=1 and the replica has
+	//    report_user=<replication_user>. If that's not the case, we are not able
+	// 	  to filter the replica below and it will be enqueued into the discoveryQueue.
+	//    Once ReadTopologyInstanceBufferable is called for such replica, we will
+	//    check it's replication user name, but this needs some queries to the replica.
+	//    (see this function above).
+	//    To avoid this overhead, configure source and replica properly.
+	// 2. In case of DiscoverByShowSlaveHosts=false, I_S.processlist table is used.
+	// 	  It contains replica's replication user name, so the replica will be skipped
+	//    always.
 	if config.Config.DiscoverByShowSlaveHosts || isMaxScale {
 		err := sqlutils.QueryRowsMap(db, instance.QSP.show_slave_hosts(),
 			func(m sqlutils.RowMap) error {
@@ -761,6 +822,7 @@ func ReadTopologyInstanceBufferable(instanceKey *InstanceKey, bufferWrites bool,
 				// good prior to calling ResolveHostname()
 				host := m.GetString("Host")
 				port := m.GetIntD("Port", 0)
+				user := m.GetString("User")
 				if host == "" || port == 0 {
 					if isMaxScale && host == "" && port == 0 {
 						// MaxScale reports a bad response sometimes so ignore it.
@@ -774,7 +836,11 @@ func ReadTopologyInstanceBufferable(instanceKey *InstanceKey, bufferWrites bool,
 				replicaKey, err := NewResolveInstanceKey(host, port)
 				if err == nil && replicaKey.IsValid() {
 					if !FiltersMatchInstanceKey(replicaKey, config.Config.DiscoveryIgnoreReplicaHostnameFilters) {
-						instance.AddReplicaKey(replicaKey)
+						if !FiltersMatchReplicationIgnoreUsername(user, config.Config.DiscoveryIgnoreReplicationUsernameFilters) {
+							instance.AddReplicaKey(replicaKey)
+						} else if config.Config.EnableDiscoveryFiltersLogs {
+							log.Infof("Ignoring replica %+v of %+v because its replication user matches DiscoveryIgnoreReplicationUsernameFilters", replicaKey, instanceKey)
+						}
 					}
 					foundByShowSlaveHosts = true
 				}
@@ -790,6 +856,7 @@ func ReadTopologyInstanceBufferable(instanceKey *InstanceKey, bufferWrites bool,
 			defer waitGroup.Done()
 			err := sqlutils.QueryRowsMap(db, `
       	select
+			user,
       		substring_index(host, ':', 1) as slave_hostname
       	from
       		information_schema.processlist
@@ -798,12 +865,20 @@ func ReadTopologyInstanceBufferable(instanceKey *InstanceKey, bufferWrites bool,
   		`,
 				func(m sqlutils.RowMap) error {
 					cname, resolveErr := ResolveHostname(m.GetString("slave_hostname"))
+					user := m.GetString("user")
 					if resolveErr != nil {
 						logReadTopologyInstanceError(instanceKey, "ResolveHostname: processlist", resolveErr)
 					}
+
+					// Note that here we assume that the replica port is the same as our port
+					// This is the best we can do, because there is no info about port in processlist.
 					replicaKey := InstanceKey{Hostname: cname, Port: instance.Key.Port}
 					if !FiltersMatchInstanceKey(&replicaKey, config.Config.DiscoveryIgnoreReplicaHostnameFilters) {
-						instance.AddReplicaKey(&replicaKey)
+						if !FiltersMatchReplicationIgnoreUsername(user, config.Config.DiscoveryIgnoreReplicationUsernameFilters) {
+							instance.AddReplicaKey(&replicaKey)
+						} else if config.Config.EnableDiscoveryFiltersLogs {
+							log.Infof("Ignoring replica %+v of %+v because its replication user matches DiscoveryIgnoreReplicationUsernameFilters", replicaKey, instanceKey)
+						}
 					}
 					return err
 				})
@@ -1053,16 +1128,25 @@ Cleanup:
 		}
 		lastAttemptedCheckTimer.Stop()
 		latency.Stop("backend")
-		return instance, nil
+		return instance, instanceDiscoverySkipped, nil
 	}
 
 	// Something is wrong, could be network-wise. Record that we
 	// tried to check the instance. last_attempted_check is also
 	// updated on success by writeInstance.
-	latency.Start("backend")
-	_ = UpdateInstanceLastChecked(&instance.Key, partialSuccess)
-	latency.Stop("backend")
-	return nil, err
+	//
+	// We also get here if the instance read was skipped because
+	// it was filtered by DiscoveryIgnoreReplicationUsernameFilters.
+	// As the configuration can be hot-reloaded, we want this instance
+	// to be reported as 'not recently checked' (instance.IsRecentlyChecked)
+	// rather than invalid.
+	if !instanceDiscoverySkipped {
+		latency.Start("backend")
+		_ = UpdateInstanceLastChecked(&instance.Key, partialSuccess)
+		latency.Stop("backend")
+	}
+
+	return nil, instanceDiscoverySkipped, err
 }
 
 // ReadClusterAliasOverride reads and applies SuggestedClusterAlias based on cluster_alias_override
@@ -2112,6 +2196,28 @@ func InjectUnseenMasters() error {
 		}
 		if FiltersMatchInstanceKey(&masterKey, config.Config.DiscoveryIgnoreHostnameFilters) {
 			log.Debugf("InjectUnseenMasters: skipping discovery of %+v because it matches DiscoveryIgnoreHostnameFilters", masterKey)
+			continue
+		}
+
+		// We need to skip the master (intermediate replica) that uses replication user
+		// that is filtered by DiscoveryIgnoreReplicationUsernameFilters.
+		// Unfortunatly we don't know the replicaton user without examining the instance.
+		// We need to do so first and then decide if we want to store it in
+		// database_instance table (WriteInstance()) for regular discovery.
+		// Note that we also can't store instance -> replication user mapping
+		// somewhere and then use this information for filtering the host, as the user
+		// can change, so if we know about this instance, we constantly need to check its
+		// user and decide.
+		// This is a corner case when during the discovery some replica was pointed out
+		// and then we figured out its master (but not master's replication user).
+		// In normal case, we point a chain master during the discovery, then we can
+		// learn replica's usernames without examining actual replicas, so we can
+		// skip them.
+		_, skipped, _ := ReadTopologyInstanceBufferable(&masterKey, false, nil)
+		if skipped {
+			if config.Config.EnableDiscoveryFiltersLogs {
+				log.Infof("InjectUnseenMasters: Skipping discovery of %+v because its replication user matches DiscoveryIgnoreReplicationUsernameFilters", masterKey)
+			}
 			continue
 		}
 
