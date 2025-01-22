@@ -242,6 +242,7 @@ type Configuration struct {
 	PostMasterFailoverProcesses                []string          // Processes to execute after doing a master failover (order of execution undefined). Uses same placeholders as PostFailoverProcesses
 	PostIntermediateMasterFailoverProcesses    []string          // Processes to execute after doing a master failover (order of execution undefined). Uses same placeholders as PostFailoverProcesses
 	PostGracefulTakeoverProcesses              []string          // Processes to execute after runnign a graceful master takeover. Uses same placeholders as PostFailoverProcesses
+	PostUnsuccessfulGracefulTakeoverProcesses  []string          // Processes to execute after an unsuccessful graceful master takeover. Uses same placeholders as PostFailoverProcesses
 	PostTakeMasterProcesses                    []string          // Processes to execute after a successful Take-Master event has taken place
 	RecoverNonWriteableMaster                  bool              // When 'true', orchestrator treats a read-only master as a failure scenario and attempts to make the master writeable
 	CoMasterRecoveryMustPromoteOtherCoMaster   bool              // When 'false', anything can get promoted (and candidates are prefered over others). When 'true', orchestrator will promote the other co-master or else fail
@@ -425,6 +426,7 @@ func newConfiguration() *Configuration {
 		PostFailoverProcesses:                      []string{},
 		PostUnsuccessfulFailoverProcesses:          []string{},
 		PostGracefulTakeoverProcesses:              []string{},
+		PostUnsuccessfulGracefulTakeoverProcesses:  []string{},
 		PostTakeMasterProcesses:                    []string{},
 		RecoverNonWriteableMaster:                  false,
 		CoMasterRecoveryMustPromoteOtherCoMaster:   true,
