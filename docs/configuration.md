@@ -10,6 +10,7 @@ Use the following small steps to configure `orchestrator`:
 
 - [Backend](configuration-backend.md)
 - [Discovery: basic](configuration-discovery-basic.md)
+- [Discovery: advanced](configuration-discovery-advanced.md)
 - [Discovery: resolving names](configuration-discovery-resolve.md)
 - [Discovery: classifying servers](configuration-discovery-classifying.md)
 - [Discovery: Pseudo-GTID](configuration-discovery-pseudo-gtid.md)
