@@ -3,6 +3,13 @@
 ![](https://github.com/openark/orchestrator/workflows/system%20tests/badge.svg)
 [![downloads](https://img.shields.io/github/downloads/openark/orchestrator/total.svg)](https://github.com/openark/orchestrator/releases) [![release](https://img.shields.io/github/release/openark/orchestrator.svg)](https://github.com/openark/orchestrator/releases)
 
+> **NOTE:** This is a fork of the abandoned [Orchestrator](https://github.com/openark/orchestrator) project. Percona is not the public maintainer of the Orchestrator project. We modify this fork almost exclusively for use in our Kubernetes Operators, but we make our changes available to the open-source community if they suit your needs.
+
+We are not currently entertaining external enhancements or feature requests.  We do, hoever, believe Orchestrator has potential and are open to exploring its future as a community-driven project. We welcome collaboration with interested organizations. Our priority is determining whether sufficient resources (time and funding) can be secured to ensure Orchestrator's continued maintenance and development. We're open to discussing potential partnerships with organizations who might be interested in supporting this effort. 
+
+If you or your organization are willing to contribute resources or funding, please reach out to orchestrator@percona.com. 
+
+
 # orchestrator [[Documentation]](https://github.com/openark/orchestrator/tree/master/docs)
 
 
