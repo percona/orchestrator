@@ -2395,39 +2395,80 @@ func (this *HttpAPI) DiscoveryMetricsAggregated(params martini.Params, r render.
 	r.JSON(http.StatusOK, aggregated)
 }
 
-// DiscoveryQueueMetricsRaw returns the raw queue metrics (active and
-// queued values), data taken secondly for the last N seconds.
-func (this *HttpAPI) DiscoveryQueueMetricsRaw(params martini.Params, r render.Render, req *http.Request, user auth.User) {
+func (this *HttpAPI) discoveryQueueMetricsAggregatedCommon(params martini.Params, r render.Render, req *http.Request, user auth.User, queueName string) {
 	seconds, err := strconv.Atoi(params["seconds"])
-	log.Debugf("DiscoveryQueueMetricsRaw: seconds: %d", seconds)
+	log.Debugf("DiscoveryQueueMetricsAggregated: queue: %s, seconds: %d", queueName, seconds)
 	if err != nil {
-		Respond(r, &APIResponse{Code: ERROR, Message: "Unable to generate discovery queue  aggregated metrics"})
+		Respond(r, &APIResponse{Code: ERROR, Message: "Unable to generate discovery queue aggregated metrics"})
 		return
 	}
 
-	queue := discovery.CreateOrReturnQueue("DEFAULT")
+	queue := discovery.ReturnQueue(queueName)
+	if queue == nil {
+		Respond(r, &APIResponse{Code: ERROR, Message: "Unable to generate discovery queue aggregated metrics for unknown queue"})
+		return
+	}
+	aggregated := queue.AggregatedDiscoveryQueueMetrics(seconds)
+	log.Debugf("DiscoveryQueueMetricsAggregated data: %+v", aggregated)
+
+	r.JSON(http.StatusOK, aggregated)
+}
+
+func (this *HttpAPI) discoveryQueueMetricsRawCommon(params martini.Params, r render.Render, req *http.Request, user auth.User, queueName string) {
+	seconds, err := strconv.Atoi(params["seconds"])
+	log.Debugf("DiscoveryQueueMetricsRaw: seconds: %d", seconds)
+	if err != nil {
+		Respond(r, &APIResponse{Code: ERROR, Message: "Unable to generate discovery queue raw metrics"})
+		return
+	}
+
+	queue := discovery.ReturnQueue(queueName)
+	if queue == nil {
+		Respond(r, &APIResponse{Code: ERROR, Message: "Unable to generate discovery queue aggregated metrics for unknown queue"})
+		return
+	}
 	metrics := queue.DiscoveryQueueMetrics(seconds)
 	log.Debugf("DiscoveryQueueMetricsRaw data: %+v", metrics)
 
 	r.JSON(http.StatusOK, metrics)
 }
 
+// DiscoveryQueueMetricsRaw returns the raw queue metrics (active and
+// queued values), data taken secondly for the last N seconds.
+func (this *HttpAPI) DiscoveryQueueMetricsRaw(params martini.Params, r render.Render, req *http.Request, user auth.User) {
+	this.discoveryQueueMetricsRawCommon(params, r, req, user, "DEFAULT")
+}
+
 // DiscoveryQueueMetricsAggregated returns a single value showing the metrics of the discovery queue over the last N seconds.
 // This is expected to be called every 60 seconds (?) and the config setting of the retention period is currently hard-coded.
 // See go/discovery/ for more information.
 func (this *HttpAPI) DiscoveryQueueMetricsAggregated(params martini.Params, r render.Render, req *http.Request, user auth.User) {
-	seconds, err := strconv.Atoi(params["seconds"])
-	log.Debugf("DiscoveryQueueMetricsAggregated: seconds: %d", seconds)
-	if err != nil {
+	this.discoveryQueueMetricsAggregatedCommon(params, r, req, user, "DEFAULT")
+}
+
+// DiscoveryQueueMetricsRaw2 returns the raw queue metrics (active and
+// queued values), data taken secondly for the last N seconds.
+func (this *HttpAPI) DiscoveryQueueMetricsRaw2(params martini.Params, r render.Render, req *http.Request, user auth.User) {
+	queue, found := params["queue"]
+	if !found {
+		Respond(r, &APIResponse{Code: ERROR, Message: "Unable to generate discovery queue raw metrics"})
+		return
+	}
+
+	this.discoveryQueueMetricsRawCommon(params, r, req, user, queue)
+}
+
+// DiscoveryQueueMetricsAggregated2 returns a single value showing the metrics of the discovery queue over the last N seconds.
+// This is expected to be called every 60 seconds (?) and the config setting of the retention period is currently hard-coded.
+// See go/discovery/ for more information.
+func (this *HttpAPI) DiscoveryQueueMetricsAggregated2(params martini.Params, r render.Render, req *http.Request, user auth.User) {
+	queue, found := params["queue"]
+	if !found {
 		Respond(r, &APIResponse{Code: ERROR, Message: "Unable to generate discovery queue aggregated metrics"})
 		return
 	}
 
-	queue := discovery.CreateOrReturnQueue("DEFAULT")
-	aggregated := queue.AggregatedDiscoveryQueueMetrics(seconds)
-	log.Debugf("DiscoveryQueueMetricsAggregated data: %+v", aggregated)
-
-	r.JSON(http.StatusOK, aggregated)
+	this.discoveryQueueMetricsAggregatedCommon(params, r, req, user, queue)
 }
 
 // BackendQueryMetricsRaw returns the raw backend query metrics
@@ -3982,6 +4023,8 @@ func (this *HttpAPI) RegisterRequests(m *martini.ClassicMartini) {
 	this.registerAPIRequest(m, "discovery-metrics-aggregated/:seconds", this.DiscoveryMetricsAggregated)
 	this.registerAPIRequest(m, "discovery-queue-metrics-raw/:seconds", this.DiscoveryQueueMetricsRaw)
 	this.registerAPIRequest(m, "discovery-queue-metrics-aggregated/:seconds", this.DiscoveryQueueMetricsAggregated)
+	this.registerAPIRequest(m, "discovery-queue-metrics-raw/:queue/:seconds", this.DiscoveryQueueMetricsRaw2)
+	this.registerAPIRequest(m, "discovery-queue-metrics-aggregated/:queue/:seconds", this.DiscoveryQueueMetricsAggregated2)
 	this.registerAPIRequest(m, "backend-query-metrics-raw/:seconds", this.BackendQueryMetricsRaw)
 	this.registerAPIRequest(m, "backend-query-metrics-aggregated/:seconds", this.BackendQueryMetricsAggregated)
 	this.registerAPIRequest(m, "write-buffer-metrics-raw/:seconds", this.WriteBufferMetricsRaw)

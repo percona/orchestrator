@@ -393,6 +393,7 @@ func ReadTopologyInstanceBufferable(instanceKey *InstanceKey, bufferWrites bool,
 	db, err := db.OpenDiscovery(instanceKey.Hostname, instanceKey.Port)
 	if err != nil {
 		latency.Stop("instance")
+		DeadInstancesFilter.RegisterInstance(instanceKey)
 		goto Cleanup
 	}
 
@@ -402,9 +403,11 @@ func ReadTopologyInstanceBufferable(instanceKey *InstanceKey, bufferWrites bool,
 
 	err = db.Ping()
 	if err != nil {
+		DeadInstancesFilter.RegisterInstance(instanceKey)
 		goto Cleanup
 	}
 	latency.Stop("instance")
+	DeadInstancesFilter.UnregisterInstance(instanceKey)
 
 	if isMaxScale, resolvedHostname, err = instance.checkMaxScale(db, latency); err != nil {
 		// We do not "goto Cleanup" here, although it should be the correct flow.
@@ -3083,6 +3086,7 @@ func ForgetInstance(instanceKey *InstanceKey) error {
 		return log.Errorf("ForgetInstance(): instance %+v not found", *instanceKey)
 	}
 	AuditOperation("forget", instanceKey, "")
+	DeadInstancesFilter.UnregisterInstance(instanceKey)
 	return nil
 }
 
@@ -3099,6 +3103,7 @@ func ForgetCluster(clusterName string) error {
 	for _, instance := range clusterInstances {
 		forgetInstanceKeys.Set(instance.Key.StringCode(), true, cache.DefaultExpiration)
 		AuditOperation("forget", &instance.Key, "")
+		DeadInstancesFilter.UnregisterInstance(&instance.Key)
 	}
 	_, err = db.ExecOrchestrator(`
 			delete
