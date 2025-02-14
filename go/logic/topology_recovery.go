@@ -2176,29 +2176,24 @@ func GracefulMasterTakeover(clusterName string, designatedKey *inst.InstanceKey,
 		return nil, nil, err
 	}
 	demotedMasterSelfBinlogCoordinates := &clusterMaster.SelfBinlogCoordinates
-	log.Infof("GracefulMasterTakeover: Will wait for %+v to reach master coordinates %+v", designatedInstance.Key, *demotedMasterSelfBinlogCoordinates)
-	if designatedInstance, _, err = inst.WaitForExecBinlogCoordinatesToReach(&designatedInstance.Key, demotedMasterSelfBinlogCoordinates, time.Duration(config.Config.ReasonableMaintenanceReplicationLagSeconds)*time.Second); err != nil {
+
+	topologyRecovery, promotedMasterCoordinates, err = gracefulMasterTakeover(demotedMasterSelfBinlogCoordinates, designatedInstance, analysisEntry)
+
+	if err != nil {
+		log.Errorf("GracefulMasterTakeover: promotion failed. Will unset read-only on %+v", clusterMaster.Key)
+
+		if _, unsetReadOnlyErr := inst.SetReadOnly(&clusterMaster.Key, false); unsetReadOnlyErr != nil {
+			log.Errorf("GracefulMasterTakeover: failed to unset read_only on %+v: %+v", clusterMaster.Key, unsetReadOnlyErr)
+		}
+
+		if topologyRecovery == nil {
+			// If we failed to run the recovery, use the info we already have
+			topologyRecovery = preGracefulTakeoverTopologyRecovery
+		}
+		executeProcesses(config.Config.PostUnsuccessfulGracefulTakeoverProcesses, "PostUnsuccessfulGracefulTakeoverProcesses", topologyRecovery, false)
 		return nil, nil, err
 	}
-	promotedMasterCoordinates = &designatedInstance.SelfBinlogCoordinates
 
-	log.Infof("GracefulMasterTakeover: attempting recovery")
-	recoveryAttempted, topologyRecovery, err := ForceExecuteRecovery(analysisEntry, &designatedInstance.Key, false)
-	if err != nil {
-		log.Errorf("GracefulMasterTakeover: noting an error, and for now proceeding: %+v", err)
-	}
-	if !recoveryAttempted {
-		return nil, nil, fmt.Errorf("GracefulMasterTakeover: unexpected error: recovery not attempted. This should not happen")
-	}
-	if topologyRecovery == nil {
-		return nil, nil, fmt.Errorf("GracefulMasterTakeover: recovery attempted but with no results. This should not happen")
-	}
-	if topologyRecovery.SuccessorKey == nil {
-		// Promotion fails.
-		// Undo setting read-only on original master.
-		inst.SetReadOnly(&clusterMaster.Key, false)
-		return nil, nil, fmt.Errorf("GracefulMasterTakeover: Recovery attempted yet no replica promoted; err=%+v", err)
-	}
 	var gtidHint inst.OperationGTIDHint = inst.GTIDHintNeutral
 	if topologyRecovery.RecoveryType == MasterRecoveryGTID {
 		gtidHint = inst.GTIDHintForce
@@ -2231,6 +2226,35 @@ func GracefulMasterTakeover(clusterName string, designatedKey *inst.InstanceKey,
 		}
 	}
 	executeProcesses(config.Config.PostGracefulTakeoverProcesses, "PostGracefulTakeoverProcesses", topologyRecovery, false)
+
+	return topologyRecovery, promotedMasterCoordinates, err
+}
+
+func gracefulMasterTakeover(demotedMasterSelfBinlogCoordinates *inst.BinlogCoordinates, designatedInstance *inst.Instance, analysisEntry inst.ReplicationAnalysis) (topologyRecovery *TopologyRecovery, promotedMasterCoordinates *inst.BinlogCoordinates, err error) {
+	log.Infof("GracefulMasterTakeover: Will wait for %+v to reach master coordinates %+v", designatedInstance.Key, *demotedMasterSelfBinlogCoordinates)
+	if designatedInstance, _, err = inst.WaitForExecBinlogCoordinatesToReach(&designatedInstance.Key, demotedMasterSelfBinlogCoordinates, time.Duration(config.Config.ReasonableMaintenanceReplicationLagSeconds)*time.Second); err != nil {
+		return nil, nil, err
+	}
+	promotedMasterCoordinates = &designatedInstance.SelfBinlogCoordinates
+
+	log.Infof("GracefulMasterTakeover: attempting recovery")
+	recoveryAttempted, topologyRecovery, err := ForceExecuteRecovery(analysisEntry, &designatedInstance.Key, false)
+	if err != nil {
+		log.Errorf("GracefulMasterTakeover: noting an error, and for now proceeding: %+v", err)
+	}
+	if !recoveryAttempted {
+		return nil, nil, fmt.Errorf("GracefulMasterTakeover: unexpected error: recovery not attempted. This should not happen")
+	}
+	if topologyRecovery == nil {
+		return nil, nil, fmt.Errorf("GracefulMasterTakeover: recovery attempted but with no results. This should not happen")
+	}
+
+	if topologyRecovery.SuccessorKey == nil {
+		err = fmt.Errorf("GracefulMasterTakeover: Recovery attempted yet no replica promoted; err=%+v", err)
+	} else {
+		// Clear the error if all previous checks succeeded
+		err = nil
+	}
 
 	return topologyRecovery, promotedMasterCoordinates, err
 }
