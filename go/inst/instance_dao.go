@@ -724,7 +724,7 @@ func ReadTopologyInstanceBufferable(instanceKey *InstanceKey, bufferWrites bool,
 				instance.DataCenter = match[1]
 			}
 		}
-		// This can be overriden by later invocation of DetectDataCenterQuery
+		// This can be overridden by later invocation of DetectDataCenterQuery
 	}
 	if config.Config.RegionPattern != "" {
 		if pattern, err := regexp.Compile(config.Config.RegionPattern); err == nil {
@@ -733,7 +733,7 @@ func ReadTopologyInstanceBufferable(instanceKey *InstanceKey, bufferWrites bool,
 				instance.Region = match[1]
 			}
 		}
-		// This can be overriden by later invocation of DetectRegionQuery
+		// This can be overridden by later invocation of DetectRegionQuery
 	}
 	if config.Config.PhysicalEnvironmentPattern != "" {
 		if pattern, err := regexp.Compile(config.Config.PhysicalEnvironmentPattern); err == nil {
@@ -742,7 +742,7 @@ func ReadTopologyInstanceBufferable(instanceKey *InstanceKey, bufferWrites bool,
 				instance.PhysicalEnvironment = match[1]
 			}
 		}
-		// This can be overriden by later invocation of DetectPhysicalEnvironmentQuery
+		// This can be overridden by later invocation of DetectPhysicalEnvironmentQuery
 	}
 
 	if slaveStatusFound {
@@ -1867,7 +1867,7 @@ func getTwoBusiestPerDC(all [](*Instance)) [](*Instance) {
 	return result
 }
 
-// GetClusterOSCReplicas returns a heuristic list of replicas which are fit as controll replicas for an OSC operation.
+// GetClusterOSCReplicas returns a heuristic list of replicas which are fit as control replicas for an OSC operation.
 // These would be intermediate masters
 func GetClusterOSCReplicas(clusterName string) ([](*Instance), error) {
 	if strings.Contains(clusterName, "'") {
@@ -2069,7 +2069,7 @@ func updateInstanceClusterName(instance *Instance) error {
 	return ExecDBWriteFunc(writeFunc)
 }
 
-// ReplaceClusterName replaces all occurances of oldClusterName with newClusterName
+// ReplaceClusterName replaces all occurrences of oldClusterName with newClusterName
 // It is called after a master failover
 func ReplaceClusterName(oldClusterName string, newClusterName string) error {
 	if oldClusterName == "" {
@@ -2097,7 +2097,7 @@ func ReplaceClusterName(oldClusterName string, newClusterName string) error {
 	return ExecDBWriteFunc(writeFunc)
 }
 
-// ReviewUnseenInstances reviews instances that have not been seen (suposedly dead) and updates some of their data
+// ReviewUnseenInstances reviews instances that have not been seen (supposedly dead) and updates some of their data
 func ReviewUnseenInstances() error {
 	instances, err := ReadUnseenInstances()
 	if err != nil {
