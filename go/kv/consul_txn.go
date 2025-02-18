@@ -29,7 +29,7 @@ import (
 	consulapi "github.com/hashicorp/consul/api"
 	"github.com/patrickmn/go-cache"
 
-	"github.com/openark/golib/log"
+	"github.com/openark/orchestrator/go/golib/log"
 )
 
 // groupKVPairsByKeyPrefix groups Consul Transaction operations by KV key prefix. This

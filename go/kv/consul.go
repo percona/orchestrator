@@ -28,7 +28,7 @@ import (
 	consulapi "github.com/armon/consul-api"
 	"github.com/patrickmn/go-cache"
 
-	"github.com/openark/golib/log"
+	"github.com/openark/orchestrator/go/golib/log"
 )
 
 // getConsulKVCacheKey returns a Consul KV cache key for a given datacenter
