@@ -1052,9 +1052,15 @@ func canTakeOverPromotedServerAsMaster(wantToTakeOver *inst.Instance, toBeTakenO
 	if !wantToTakeOver.MasterKey.Equals(&toBeTakenOver.Key) {
 		return false
 	}
-	if canReplicate, _ := toBeTakenOver.CanReplicateFrom(wantToTakeOver); !canReplicate {
+
+	canReplicate, err := toBeTakenOver.CanReplicateFrom(wantToTakeOver)
+	if !canReplicate {
 		return false
 	}
+	if err != nil {
+		log.Warningf("canTakeOverPromotedServerAsMaster(): %v", err)
+	}
+
 	return true
 }
 
