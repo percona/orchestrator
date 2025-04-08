@@ -24,7 +24,7 @@ time `orchestrator` will automatically find them.
 
 > Once `orchestrator` is familiar with a server, it doesn't care if the server is lagging, not replicating
 > or inaccessible. The server is still part of the topology it was last seen in. There is a timeout for
-> that: if a server is not seen by `UnseenInstanceForgetHours` hours, it is automaticaaly forgotten
+> that: if a server is not seen by `UnseenInstanceForgetHours` hours, it is automatically forgotten
 > (presumed dead). Again, if it suddenly comes back to life, and connects to a known topology, it is
 > automatically re-discovered.
 
