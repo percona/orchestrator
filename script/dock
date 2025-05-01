@@ -31,6 +31,14 @@ fi
 command="$1"
 
 case "$command" in
+  "cve")
+    docker_target="orchestrator-cve"
+    docker build . -f docker/Dockerfile.cve -t "${docker_target}" && docker run --rm -it  ${DOCKER_EXTRA_ARGS} "${docker_target}:latest"
+    ;;
+  "cve-no-it")
+    docker_target="orchestrator-cve"
+    docker build . -f docker/Dockerfile.cve -t "${docker_target}" && docker run --rm  ${DOCKER_EXTRA_ARGS} "${docker_target}:latest"
+    ;;
   "test")
     docker_target="orchestrator-test"
     docker build . -f docker/Dockerfile.test -t "${docker_target}" && docker run --rm -it --env TARBALL_URL=${TARBALL_URL} --env RUN_TESTS=${RUN_TESTS} --env ALLOW_TESTS_FAILURES=${ALLOW_TESTS_FAILURES} ${DOCKER_EXTRA_ARGS} "${docker_target}:latest"

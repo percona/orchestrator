@@ -1,0 +1,34 @@
+#!/bin/bash
+
+
+check_for_cves() {
+  local vulncheck_log=vulncheck.log
+  go install golang.org/x/vuln/cmd/govulncheck@latest
+ 
+  echo "# Verifying if the code is affected by CVEs (vulncheck)"
+  govulncheck -show verbose ./... | tee -a $vulncheck_log 
+  cat $vulncheck_log
+  
+  content=$(tr '\n' ' ' < $vulncheck_log)
+  
+  affecting_cves_cnt=$(echo "$content" | grep -oP 'Your code is affected by \K\d+' || echo 0)
+  waring_package_cves_cnt=$(echo "$content" | grep -oP 'This scan also found \K\d+' || echo 0)
+  waring_import_cves_cnt=$(echo "$content" | grep -oP 'and \K\d+(?=\s+vulnerability in modules you require)' || echo 0)
+
+  echo "affecting_cves_cnt:       $affecting_cves_cnt"
+  echo "waring_package_cves_cnt:  $waring_package_cves_cnt"
+  echo "waring_import_cves_cnt:   $waring_import_cves_cnt"
+
+  if [[ $affecting_cves_cnt -eq 0 && $waring_package_cves_cnt -eq 0 && $waring_import_cves_cnt -eq 0 ]]; then
+    result=PASSED
+  elif [[ $affecting_cves_cnt -eq 0 && ( $waring_package_cves_cnt -ne 0 || $waring_import_cves_cnt -ne 0) ]]; then
+    result=WARNING
+  else
+    result=FAILED
+  fi
+  
+  echo "CVE check result: $result"
+}
+
+
+check_for_cves
