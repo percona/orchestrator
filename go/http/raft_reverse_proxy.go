@@ -5,7 +5,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 
-	"github.com/openark/golib/log"
+	"github.com/openark/orchestrator/go/golib/log"
 
 	"github.com/go-martini/martini"
 	"github.com/openark/orchestrator/go/raft"
