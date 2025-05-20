@@ -30,6 +30,8 @@ import (
 func BeginDowntime(downtime *Downtime) (err error) {
 	if downtime.Duration == 0 {
 		downtime.Duration = config.MaintenanceExpireMinutes * time.Minute
+	        downtime.EndsAt = time.Now().Add(downtime.Duration)
+                downtime.EndsAtString = downtime.EndsAt.Format("2006-01-02 15:04:05")
 	}
 	if downtime.EndsAtString != "" {
 		_, err = db.ExecOrchestrator(`
