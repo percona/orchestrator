@@ -14,7 +14,7 @@
 # ORC_USER (default: orc_server_user): username used to login to orchestrator backend MySQL server
 # ORC_PASSWORD (default: orc_server_password): password used to login to orchestrator backend MySQL server
 
-FROM golang:1.24.2-alpine3.20 as build
+FROM golang:1.24.5-alpine3.20 as build
 
 ENV GOPATH=/tmp/go
 
