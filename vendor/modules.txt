@@ -23,11 +23,11 @@ github.com/fatih/color
 # github.com/go-martini/martini v0.0.0-20170121215854-22fa46961aab
 ## explicit
 github.com/go-martini/martini
-# github.com/go-sql-driver/mysql v1.9.2
+# github.com/go-sql-driver/mysql v1.9.3
 ## explicit; go 1.21.0
 github.com/go-sql-driver/mysql
-# github.com/hashicorp/consul/api v1.32.0
-## explicit; go 1.22.12
+# github.com/hashicorp/consul/api v1.32.1
+## explicit; go 1.23.8
 github.com/hashicorp/consul/api
 # github.com/hashicorp/errwrap v1.1.0
 ## explicit
@@ -122,18 +122,18 @@ github.com/samuel/go-zookeeper/zk
 # github.com/sjmudd/stopwatch v0.1.1
 ## explicit; go 1.16
 github.com/sjmudd/stopwatch
-# golang.org/x/crypto v0.37.0
+# golang.org/x/crypto v0.40.0
 ## explicit; go 1.23.0
 golang.org/x/crypto/ssh/terminal
-# golang.org/x/exp v0.0.0-20250408133849-7e4ce0ab07d0
+# golang.org/x/exp v0.0.0-20250711185948-6ae5c78190dc
 ## explicit; go 1.23.0
 golang.org/x/exp/slices
-# golang.org/x/sys v0.32.0
+# golang.org/x/sys v0.34.0
 ## explicit; go 1.23.0
 golang.org/x/sys/plan9
 golang.org/x/sys/unix
 golang.org/x/sys/windows
-# golang.org/x/term v0.31.0
+# golang.org/x/term v0.33.0
 ## explicit; go 1.23.0
 golang.org/x/term
 # gopkg.in/gcfg.v1 v1.2.3

@@ -1,14 +1,14 @@
 module github.com/openark/orchestrator
 
-go 1.24.2
+go 1.24.5
 
 require (
 	github.com/Showmax/go-fqdn v1.0.0
 	github.com/armon/consul-api v0.0.0-20180202201655-eb2c6b5be1b6
 	github.com/cyberdelia/go-metrics-graphite v0.0.0-20161219230853-39f87cc3b432
 	github.com/go-martini/martini v0.0.0-20170121215854-22fa46961aab
-	github.com/go-sql-driver/mysql v1.9.2
-	github.com/hashicorp/consul/api v1.32.0
+	github.com/go-sql-driver/mysql v1.9.3
+	github.com/hashicorp/consul/api v1.32.1
 	github.com/hashicorp/raft v1.7.3
 	github.com/howeyc/gopass v0.0.0-20210920133722-c8aef6fb66ef
 	github.com/martini-contrib/auth v0.0.0-20150219114609-fa62c19b7ae8
@@ -46,10 +46,10 @@ require (
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/outbrain/golib v0.0.0-20200503083229-2531e5dbcc71 // indirect
 	github.com/oxtoacart/bpool v0.0.0-20190530202638-03653db5a59c // indirect
-	golang.org/x/crypto v0.37.0 // indirect
-	golang.org/x/exp v0.0.0-20250408133849-7e4ce0ab07d0 // indirect
-	golang.org/x/sys v0.32.0 // indirect
-	golang.org/x/term v0.31.0 // indirect
+	golang.org/x/crypto v0.40.0 // indirect
+	golang.org/x/exp v0.0.0-20250711185948-6ae5c78190dc // indirect
+	golang.org/x/sys v0.34.0 // indirect
+	golang.org/x/term v0.33.0 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 )
 
