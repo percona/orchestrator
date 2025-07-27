@@ -19,7 +19,7 @@ package inst
 import (
 	"sync"
 
-	"github.com/openark/golib/log"
+	"github.com/openark/orchestrator/go/golib/log"
 )
 
 type PostponedFunctionsContainer struct {

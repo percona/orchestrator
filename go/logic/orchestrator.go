@@ -26,7 +26,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/openark/golib/log"
+	"github.com/openark/orchestrator/go/golib/log"
 	"github.com/openark/orchestrator/go/agent"
 	"github.com/openark/orchestrator/go/collection"
 	"github.com/openark/orchestrator/go/config"

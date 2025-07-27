@@ -18,7 +18,7 @@ package metrics
 
 import (
 	"github.com/cyberdelia/go-metrics-graphite"
-	"github.com/openark/golib/log"
+	"github.com/openark/orchestrator/go/golib/log"
 	"github.com/openark/orchestrator/go/config"
 	"github.com/openark/orchestrator/go/process"
 	"github.com/rcrowley/go-metrics"
