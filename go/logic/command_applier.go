@@ -278,6 +278,10 @@ func (applier *CommandApplier) deleteInstanceTag(value []byte) interface{} {
 	if err := json.Unmarshal(value, &instanceTag); err != nil {
 		return log.Errore(err)
 	}
+	if (instanceTag.Key == inst.InstanceKey{}) {
+		_, err := inst.Untag(nil, &instanceTag.T)
+		return err
+	}
 	_, err := inst.Untag(&instanceTag.Key, &instanceTag.T)
 	return err
 }

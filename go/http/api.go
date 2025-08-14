@@ -1999,6 +1999,9 @@ func (this *HttpAPI) Untag(params martini.Params, r render.Render, req *http.Req
 		return
 	}
 	untagged, err := inst.Untag(&instanceKey, tag)
+	if orcraft.IsRaftEnabled() {
+		_, err = orcraft.PublishCommand("delete-instance-tag", inst.InstanceTag{Key: instanceKey, T: *tag})
+	}
 	if err != nil {
 		Respond(r, &APIResponse{Code: ERROR, Message: err.Error()})
 		return
@@ -2015,6 +2018,9 @@ func (this *HttpAPI) UntagAll(params martini.Params, r render.Render, req *http.
 		return
 	}
 	untagged, err := inst.Untag(nil, tag)
+	if orcraft.IsRaftEnabled() {
+		_, err = orcraft.PublishCommand("delete-instance-tag", inst.InstanceTag{Key: inst.InstanceKey{}, T: *tag})
+	}
 	if err != nil {
 		Respond(r, &APIResponse{Code: ERROR, Message: err.Error()})
 		return
