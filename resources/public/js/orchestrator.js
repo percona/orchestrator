@@ -371,8 +371,18 @@ function openNodeModal(node) {
       $('#node_modal [data-btn-group=gtid-errant-fix]').show();
     }
   }
-  addNodeModalDataAttribute("Semi-sync enforced", booleanString(node.SemiSyncEnforced));
-
+  addNodeModalDataAttribute("Semi-sync source enabled", booleanString(node.SemiSyncMasterEnabled));
+  if (node.SemiSyncMasterEnabled) {
+    addNodeModalDataAttribute("Is semi-sync source", node.SemiSyncMasterStatus);
+  }
+  addNodeModalDataAttribute("Semi-sync replica enabled", booleanString(node.SemiSyncReplicaEnabled));
+  if (node.SemiSyncReplicaEnabled) {
+    addNodeModalDataAttribute("Is semi-sync replica", node.SemiSyncReplicaStatus);
+    addNodeModalDataAttribute("Enforce semi-sync on replicas after failover", booleanString(node.SemiSyncPriority > 0));
+    if (node.SemiSyncPriority > 0) {
+      addNodeModalDataAttribute("Enforce semi-sync on replicas after failover priority", node.SemiSyncPriority);
+    }
+  }
   addNodeModalDataAttribute("Uptime", node.Uptime);
   addNodeModalDataAttribute("Allow TLS", node.AllowTLS);
   addNodeModalDataAttribute("Region", node.Region);
