@@ -1,4 +1,4 @@
-FROM golang:1.24.5-bullseye
+FROM golang:1.25.1-bookworm
 LABEL maintainer="kamil.holubicki@percona.com"
 
 ENV WORKPATH /go/src/github.com/openark/orchestrator
