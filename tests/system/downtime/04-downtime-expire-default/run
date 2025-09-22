@@ -1,0 +1,6 @@
+# The downtime is set implicitly to 10 minutes in the previous step.
+# We will not wait here for such a long time, just wait a minute and see
+# if the instance is still downtimed.
+sleep 65
+orchestrator-client -c downtimed
+

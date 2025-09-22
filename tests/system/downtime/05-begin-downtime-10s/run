@@ -1,0 +1,3 @@
+curl -s "http://127.0.0.1:3000/api/begin-downtime/127.0.0.1/10113/root/testing/10s" > /dev/null
+orchestrator-client -c downtimed
+

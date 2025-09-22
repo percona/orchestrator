@@ -1,0 +1,4 @@
+# Set the downtime, but witout explicitly specifying the downtime value.
+# It will fall back to the default 10 minutes.
+curl -s "http://127.0.0.1:3000/api/begin-downtime/127.0.0.1/10113/root/testing" > /dev/null
+orchestrator-client -c downtimed

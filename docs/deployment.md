@@ -94,6 +94,8 @@ Shown above are uses for both `orchestrator-client` and the `orchestrator` comma
 ```shell
 $ curl -s "http://my.orchestrator.service:80/api/begin-downtime/my.hostname/3306/wallace/experimenting+failover/45m"
 ```
+`45m` is duration of time in minutes the host will be marked under downtime.
+If the duration time is not specified, the default value of 10 minutes will be applied.
 
 The `orchestrator-client` script runs this very API call, wrapping it up and encoding the URL path. It can also automatically detect the leader, in case you don't want to run through a proxy.
 
