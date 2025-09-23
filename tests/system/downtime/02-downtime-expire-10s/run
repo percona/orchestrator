@@ -1,0 +1,4 @@
+# The downtime is set explicitly to 10 secs in the previous step. Wait for it to expire.
+sleep 15
+orchestrator-client -c downtimed
+

@@ -18,6 +18,8 @@ package inst
 
 import (
 	"time"
+
+	"github.com/openark/orchestrator/go/config"
 )
 
 type Downtime struct {
@@ -32,6 +34,11 @@ type Downtime struct {
 }
 
 func NewDowntime(instanceKey *InstanceKey, owner string, reason string, duration time.Duration) *Downtime {
+	// In case of zero-length downtime requested, fallback to the default one
+	if duration == 0 {
+		duration = config.MaintenanceExpireMinutes * time.Minute
+	}
+
 	downtime := &Downtime{
 		Key:      instanceKey,
 		Owner:    owner,
