@@ -101,7 +101,7 @@ func AuditOperation(auditType string, instanceKey *InstanceKey, message string) 
 		}()
 	}
 	if !auditWrittenToFile {
-		log.Infof(logMessage)
+		log.Info(logMessage)
 	}
 	auditOperationCounter.Inc(1)
 

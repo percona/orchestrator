@@ -219,7 +219,7 @@ func logReadTopologyInstanceError(instanceKey *InstanceKey, hint string, err err
 			strings.Replace(hint, "%", "%%", -1), // escape %
 			err)
 	}
-	return log.Errorf(msg)
+	return log.Error(msg)
 }
 
 // ReadTopologyInstance collects information on the state of a MySQL

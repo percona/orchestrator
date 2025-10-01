@@ -269,7 +269,7 @@ Cleanup:
 
 	if err == nil {
 		message := fmt.Sprintf("moved %+v via equivalence coordinates below %+v", *instanceKey, *otherKey)
-		log.Debugf(message)
+		log.Debug(message)
 		AuditOperation("move-equivalent", instanceKey, message)
 	}
 	return instance, err
@@ -2169,6 +2169,22 @@ func IsBannedFromBeingCandidateReplica(replica *Instance) bool {
 	return false
 }
 
+func FilterInstancesNotInSameDataCenter(instances []*Instance, dataCenterHint string) []*Instance {
+	if dataCenterHint == "" {
+		return instances
+	}
+	var filtered []*Instance
+	for _, instance := range instances {
+		if instance.DataCenter == dataCenterHint {
+			filtered = append(filtered, instance)
+		}
+	}
+	if len(filtered) > 0 {
+		return filtered
+	}
+	return instances
+}
+
 // getPriorityMajorVersionForCandidate returns the primary (most common) major version found
 // among given instances. This will be used for choosing best candidate for promotion.
 func getPriorityMajorVersionForCandidate(replicas [](*Instance)) (priorityMajorVersion string, err error) {
@@ -2264,8 +2280,9 @@ func chooseCandidateReplica(replicas [](*Instance)) (candidateReplica *Instance,
 }
 
 // GetCandidateReplica chooses the best replica to promote given a (possibly dead) master
-func GetCandidateReplica(masterKey *InstanceKey, forRematchPurposes bool) (*Instance, [](*Instance), [](*Instance), [](*Instance), [](*Instance), error) {
+func GetCandidateReplica(masterKey *InstanceKey, forRematchPurposes bool, forGracefulTakeoverPurposes bool) (*Instance, [](*Instance), [](*Instance), [](*Instance), [](*Instance), error) {
 	var candidateReplica *Instance
+	var primary *Instance
 	aheadReplicas := [](*Instance){}
 	equalReplicas := [](*Instance){}
 	laterReplicas := [](*Instance){}
@@ -2273,6 +2290,7 @@ func GetCandidateReplica(masterKey *InstanceKey, forRematchPurposes bool) (*Inst
 
 	dataCenterHint := ""
 	if master, _, _ := ReadInstance(masterKey); master != nil {
+		primary = master
 		dataCenterHint = master.DataCenter
 	}
 	replicas, err := getReplicasForSorting(masterKey, false)
@@ -2286,6 +2304,10 @@ func GetCandidateReplica(masterKey *InstanceKey, forRematchPurposes bool) (*Inst
 	replicas = sortedReplicasDataCenterHint(replicas, stopReplicationMethod, dataCenterHint)
 	if len(replicas) == 0 {
 		return candidateReplica, aheadReplicas, equalReplicas, laterReplicas, cannotReplicateReplicas, fmt.Errorf("No replicas found for %+v", *masterKey)
+	}
+	// In automatic failover cases, respect cross-datacenter failover configuration
+	if !forGracefulTakeoverPurposes && config.Config.RecoveryBlockCrossDatacenterFailovers && primary != nil && primary.DataCenter != "" {
+		replicas = FilterInstancesNotInSameDataCenter(replicas, primary.DataCenter)
 	}
 	candidateReplica, aheadReplicas, equalReplicas, laterReplicas, cannotReplicateReplicas, err = chooseCandidateReplica(replicas)
 	if err != nil {
@@ -2344,7 +2366,7 @@ func RegroupReplicasPseudoGTID(
 	candidateReplica *Instance,
 	err error,
 ) {
-	candidateReplica, aheadReplicas, equalReplicas, laterReplicas, cannotReplicateReplicas, err = GetCandidateReplica(masterKey, true)
+	candidateReplica, aheadReplicas, equalReplicas, laterReplicas, cannotReplicateReplicas, err = GetCandidateReplica(masterKey, true, false)
 	if err != nil {
 		if !returnReplicaEvenOnFailureToRegroup {
 			candidateReplica = nil
@@ -2461,7 +2483,7 @@ func RegroupReplicasPseudoGTIDIncludingSubReplicasOfBinlogServers(
 		log.Debugf("RegroupReplicasIncludingSubReplicasOfBinlogServers: most up to date binlog server of %+v: %+v", *masterKey, mostUpToDateBinlogServer.Key)
 
 		// Find the most up to date candidate replica:
-		candidateReplica, _, _, _, _, err := GetCandidateReplica(masterKey, true)
+		candidateReplica, _, _, _, _, err := GetCandidateReplica(masterKey, true, false)
 		if err != nil {
 			return log.Errore(err)
 		}
@@ -2527,7 +2549,7 @@ func RegroupReplicasGTID(
 ) {
 	var emptyReplicas [](*Instance)
 	var unmovedReplicas [](*Instance)
-	candidateReplica, aheadReplicas, equalReplicas, laterReplicas, cannotReplicateReplicas, err := GetCandidateReplica(masterKey, true)
+	candidateReplica, aheadReplicas, equalReplicas, laterReplicas, cannotReplicateReplicas, err := GetCandidateReplica(masterKey, true, false)
 	if err != nil {
 		if !returnReplicaEvenOnFailureToRegroup {
 			candidateReplica = nil

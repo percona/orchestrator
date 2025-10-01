@@ -500,7 +500,7 @@ func GetReplicationAnalysis(clusterName string, hints *ReplicationAnalysisHints)
 				a.ClusterDetails.ClusterName, a.IsMaster, a.LastCheckValid, a.LastCheckPartialSuccess, a.CountReplicas, a.CountValidReplicas, a.CountValidReplicatingReplicas, a.CountLaggingReplicas, a.CountDelayedReplicas, a.CountReplicasFailingToConnectToMaster,
 			)
 			if util.ClearToLog("analysis_dao", analysisMessage) {
-				log.Debugf(analysisMessage)
+				log.Debug(analysisMessage)
 			}
 		}
 		if !a.IsReplicationGroupMember /* Traditional Async/Semi-sync replication issue detection */ {

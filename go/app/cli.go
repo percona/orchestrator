@@ -387,7 +387,7 @@ func Cli(command string, strict bool, instance string, destination string, owner
 				log.Fatal("Cannot deduce instance:", instance)
 			}
 
-			instance, _, _, _, _, err := inst.GetCandidateReplica(instanceKey, false)
+			instance, _, _, _, _, err := inst.GetCandidateReplica(instanceKey, false, false)
 			if err != nil {
 				log.Fatale(err)
 			} else {

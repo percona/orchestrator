@@ -2055,7 +2055,7 @@ func getGracefulMasterTakeoverDesignatedInstance(clusterMasterKey *inst.Instance
 			return nil, fmt.Errorf("GracefulMasterTakeover: target instance not indicated, auto=false, and master %+v has %+v replicas. orchestrator cannot choose where to failover to. Aborting", *clusterMasterKey, len(clusterMasterDirectReplicas))
 		}
 		log.Debugf("GracefulMasterTakeover: request takeover for master %+v, no designated replica indicated. orchestrator will attempt to auto deduce replica.", *clusterMasterKey)
-		designatedInstance, _, _, _, _, err = inst.GetCandidateReplica(clusterMasterKey, false)
+		designatedInstance, _, _, _, _, err = inst.GetCandidateReplica(clusterMasterKey, false, true)
 		if err != nil || designatedInstance == nil {
 			return nil, fmt.Errorf("GracefulMasterTakeover: no target instance indicated, failed to auto-detect candidate replica for master %+v. Aborting", *clusterMasterKey)
 		}
