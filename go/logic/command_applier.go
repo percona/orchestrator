@@ -23,7 +23,7 @@ import (
 	"github.com/openark/orchestrator/go/kv"
 	"github.com/openark/orchestrator/go/raft"
 
-	"github.com/openark/golib/log"
+	"github.com/openark/orchestrator/go/golib/log"
 )
 
 // AsyncRequest represents an entry in the async_request table

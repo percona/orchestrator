@@ -26,7 +26,7 @@ import (
 
 	"gopkg.in/gcfg.v1"
 
-	"github.com/openark/golib/log"
+	"github.com/openark/orchestrator/go/golib/log"
 )
 
 var (
