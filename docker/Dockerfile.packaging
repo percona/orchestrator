@@ -29,5 +29,4 @@ COPY . .
 ARG RELEASE_VERSION=
 ARG RELEASE_SUBVERSION=
 RUN bash build.sh -b -P
-RUN bash build.sh -R -N -i sysv
 RUN bash build.sh -R -N -i systemd

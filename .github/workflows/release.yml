@@ -1,0 +1,73 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Extract version from tag
+      id: get_version
+      run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+
+    - name: Build DEB packages in Docker
+      run: |
+        docker build \
+          --build-arg RELEASE_VERSION=${{ steps.get_version.outputs.VERSION }} \
+          -f docker/Dockerfile.packaging \
+          -t orchestrator-build:${{ steps.get_version.outputs.VERSION }} \
+          .
+
+    - name: Extract DEB packages from Docker container
+      run: |
+        # Create container from image
+        CONTAINER_ID=$(docker create orchestrator-build:${{ steps.get_version.outputs.VERSION }})
+
+        # Create output directory
+        mkdir -p packages
+
+        # Copy all DEB packages from the container
+        docker cp ${CONTAINER_ID}:/tmp/orchestrator-release/ ./packages/
+
+        # Clean up container
+        docker rm ${CONTAINER_ID}
+
+        # List extracted packages
+        echo "Extracted packages:"
+        find ./packages -name "*.deb" -type f
+
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: Release ${{ steps.get_version.outputs.VERSION }}
+        draft: false
+        prerelease: false
+
+    - name: Upload DEB packages to Release
+      run: |
+        # Find and upload all DEB files
+        for deb_file in $(find ./packages -name "*.deb" -type f); do
+          filename=$(basename "$deb_file")
+          echo "Uploading $filename..."
+
+          curl -L \
+            -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Content-Type: application/octet-stream" \
+            "${{ steps.create_release.outputs.upload_url }}?name=$filename" \
+            --data-binary "@$deb_file"
+        done
