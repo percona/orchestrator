@@ -857,15 +857,7 @@ func ReadTopologyInstanceBufferable(instanceKey *InstanceKey, bufferWrites bool,
 		waitGroup.Add(1)
 		go func() {
 			defer waitGroup.Done()
-			err := sqlutils.QueryRowsMap(db, `
-      	select
-			user,
-      		substring_index(host, ':', 1) as slave_hostname
-      	from
-      		information_schema.processlist
-      	where
-          command IN ('Binlog Dump', 'Binlog Dump GTID')
-  		`,
+			err := sqlutils.QueryRowsMap(db, instance.QSP.select_user_host(),
 				func(m sqlutils.RowMap) error {
 					cname, resolveErr := ResolveHostname(m.GetString("slave_hostname"))
 					user := m.GetString("user")

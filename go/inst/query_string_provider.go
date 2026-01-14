@@ -56,6 +56,7 @@ const (
 	change_master_to_master_delay
 	set_sql_slave_skip_counter
 	change_master_to_get_source_public_key
+	select_user_host
 )
 
 func (qps *QueryStringProvider) log_slave_updates() string {
@@ -242,6 +243,10 @@ func (qps *QueryStringProvider) change_master_to_get_source_public_key() string 
 	return qps.queries[change_master_to_get_source_public_key]
 }
 
+func (qps *QueryStringProvider) select_user_host() string {
+	return qps.queries[select_user_host]
+}
+
 var queryStrings80 = map[QueryStringKey]string{
 	log_slave_updates:         "log_slave_updates",
 	start_slave:               "start slave",
@@ -290,7 +295,23 @@ var queryStrings80 = map[QueryStringKey]string{
 	change_master_to_master_delay:                         "change master to master_delay=%d",
 	set_sql_slave_skip_counter:                            "set global sql_slave_skip_counter := 1",
 	change_master_to_get_source_public_key:                "select 1",
+	select_user_host:                                      "select user, substring_index(host, ':', 1) as slave_hostname from information_schema.processlist where command IN ('Binlog Dump', 'Binlog Dump GTID')",
 }
+
+var queryStrings8014 = func() map[QueryStringKey]string {
+	m := make(map[QueryStringKey]string, len(queryStrings80))
+
+	// copy everything from version < 8.0.14
+	for k, v := range queryStrings80 {
+		m[k] = v
+	}
+
+	// change for 8.0.14 and newer 8.0
+	m[select_user_host] = "select user, substring_index(host, ':', 1) as slave_hostname from performance_schema.processlist where command IN ('Binlog Dump', 'Binlog Dump GTID')"
+
+	return m
+
+}()
 
 var queryStrings84 = map[QueryStringKey]string{
 	log_slave_updates:         "log_replica_updates",
@@ -340,10 +361,15 @@ var queryStrings84 = map[QueryStringKey]string{
 	change_master_to_master_delay:                         "change replication source to source_delay=%d",
 	set_sql_slave_skip_counter:                            "set global sql_replica_skip_counter := 1",
 	change_master_to_get_source_public_key:                "change replication source to get_source_public_key=1",
+	select_user_host:                                      "select user, substring_index(host, ':', 1) as slave_hostname from performance_schema.processlist where command IN ('Binlog Dump', 'Binlog Dump GTID')",
 }
 
 var queryStringProvider80 = QueryStringProvider{
 	queries: queryStrings80,
+}
+
+var queryStringProvider8014 = QueryStringProvider{
+	queries: queryStrings8014,
 }
 
 var queryStringProvider84 = QueryStringProvider{
@@ -358,6 +384,9 @@ func GetQueryStringProvider(version string) QueryStringProvider {
 
 	if version >= "8.4" {
 		return queryStringProvider84
+	}
+	if version >= "8.0.14" {
+		return queryStringProvider8014
 	}
 
 	return queryStringProvider80
