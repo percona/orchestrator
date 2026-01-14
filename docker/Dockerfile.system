@@ -1,4 +1,4 @@
-FROM golang:1.25.1-bookworm
+FROM golang:1.25.5-bookworm
 LABEL maintainer="openark@github.com"
 
 ARG ci_env_repo="https://github.com/percona/orchestrator-ci-env.git"
@@ -8,7 +8,7 @@ RUN echo "ci_env_repo: $ci_env_repo"
 RUN echo "ci_env_branch: $ci_env_branch"
 
 RUN apt-get update -q -y
-RUN apt-get install -y sudo haproxy python git jq rsync libaio1 libnuma1 default-mysql-client bsdmainutils less vim libncurses5
+RUN apt-get install -y sudo haproxy python-is-python3 2to3 git jq rsync libaio1 libnuma1 default-mysql-client bsdmainutils less vim libncurses5
 
 RUN mkdir /orchestrator
 WORKDIR /orchestrator
