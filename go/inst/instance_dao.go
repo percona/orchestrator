@@ -554,7 +554,7 @@ func ReadTopologyInstanceBufferable(instanceKey *InstanceKey, bufferWrites bool,
 
 		// Synchronously query for some params needed in following go routines
 		var mysqlHostname, mysqlReportHost string
-		err = db.QueryRow("select @@global.hostname, ifnull(@@global.report_host, ''), @@global.server_id, @@global.version_comment, @@global.read_only, @@global.binlog_format, @@global.log_bin, @@global."+instance.QSP.log_slave_updates()).Scan(
+		err = db.QueryRow("select @@global.hostname, ifnull(@@global.report_host, ''), @@global.server_id, @@global.version_comment, IF(CAST(@@global.read_only as char) IN ('ON','1'), 1, 0), @@global.binlog_format, @@global.log_bin, @@global."+instance.QSP.log_slave_updates()).Scan(
 			&mysqlHostname, &mysqlReportHost, &instance.ServerID, &instance.VersionComment, &instance.ReadOnly, &instance.Binlog_format, &instance.LogBinEnabled, &instance.LogReplicationUpdatesEnabled)
 		if err != nil {
 			goto Cleanup
