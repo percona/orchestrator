@@ -151,6 +151,7 @@ type Configuration struct {
 	BufferInstanceWrites                       bool     // Set to 'true' for write-optimization on backend table (compromise: writes can be stale and overwrite non stale data)
 	InstanceFlushIntervalMilliseconds          int      // Max interval between instance write buffer flushes
 	SkipMaxScaleCheck                          bool     // If you don't ever have MaxScale BinlogServer in your topology (and most people don't), set this to 'true' to save some pointless queries
+	AllowLowerVersionForReplication            bool     // Disable checking if MySQL version we're trying to replicate from is higher than the replica, warning is produced.
 	UnseenInstanceForgetHours                  uint     // Number of hours after which an unseen instance is forgotten
 	SnapshotTopologiesIntervalHours            uint     // Interval in hour between snapshot-topologies invocation. Default: 0 (disabled)
 	DiscoveryMaxConcurrency                    uint     // Number of goroutines doing hosts discovery
@@ -345,6 +346,7 @@ func newConfiguration() *Configuration {
 		BufferInstanceWrites:                       false,
 		InstanceFlushIntervalMilliseconds:          100,
 		SkipMaxScaleCheck:                          true,
+		AllowLowerVersionForReplication:            false,
 		UnseenInstanceForgetHours:                  240,
 		SnapshotTopologiesIntervalHours:            0,
 		DiscoverByShowSlaveHosts:                   false,

@@ -17,10 +17,11 @@
 package inst
 
 import (
+	"testing"
+
 	"github.com/openark/golib/log"
 	test "github.com/openark/golib/tests"
 	"github.com/openark/orchestrator/go/config"
-	"testing"
 )
 
 func init() {
@@ -133,6 +134,21 @@ func TestCanReplicateFrom(t *testing.T) {
 	test.S(t).ExpectTrue(canReplicate)
 	canReplicate, _ = i55.CanReplicateFrom(&i56)
 	test.S(t).ExpectFalse(canReplicate)
+
+	i80 := Instance{Key: key3, Version: "8.0"}
+	i80.LogBinEnabled = true
+	i80.LogReplicationUpdatesEnabled = true
+	i80.ServerID = 80
+
+	canReplicate, err = i56.CanReplicateFrom(&i80)
+	test.S(t).ExpectNotNil(err)
+	test.S(t).ExpectEquals(canReplicate, false)
+
+	config.Config.AllowLowerVersionForReplication = true
+	canReplicate, err = i56.CanReplicateFrom(&i80)
+	test.S(t).ExpectNotNil(err)
+	test.S(t).ExpectEquals(canReplicate, true)
+	config.Config.AllowLowerVersionForReplication = false
 
 	iStatement := Instance{Key: key1, Binlog_format: "STATEMENT", ServerID: 1, Version: "5.5", LogBinEnabled: true, LogReplicationUpdatesEnabled: true}
 	iRow := Instance{Key: key2, Binlog_format: "ROW", ServerID: 2, Version: "5.5", LogBinEnabled: true, LogReplicationUpdatesEnabled: true}
