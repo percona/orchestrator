@@ -24,7 +24,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/openark/golib/math"
+	"github.com/openark/orchestrator/go/golib/math"
 	"github.com/openark/orchestrator/go/config"
 )
 

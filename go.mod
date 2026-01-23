@@ -16,7 +16,6 @@ require (
 	github.com/martini-contrib/render v0.0.0-20150707142108-ec18f8345a11
 	github.com/mattn/go-sqlite3 v1.14.33
 	github.com/montanaflynn/stats v0.7.1
-	github.com/openark/golib v0.0.0-20210531070646-355f37940af8
 	github.com/outbrain/zookeepercli v1.0.12
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/rcrowley/go-metrics v0.0.0-20250401214520-65e299d6c5c9
@@ -55,7 +54,6 @@ require (
 
 replace (
 	github.com/hashicorp/raft => github.com/openark/raft v0.0.0-20170918052300-fba9f909f7fe
-	github.com/openark/golib => ./go/golib
 	golang.org/x/text v0.3.0 => golang.org/x/text v0.3.8
 	golang.org/x/text v0.3.7 => golang.org/x/text v0.3.8
 )

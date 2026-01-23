@@ -22,8 +22,8 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/openark/golib/log"
-	"github.com/openark/golib/sqlutils"
+	"github.com/openark/orchestrator/go/golib/log"
+	"github.com/openark/orchestrator/go/golib/sqlutils"
 
 	"github.com/hashicorp/raft"
 )

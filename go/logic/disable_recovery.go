@@ -30,8 +30,8 @@ package logic
 // go to the database each time.
 
 import (
-	"github.com/openark/golib/log"
-	"github.com/openark/golib/sqlutils"
+	"github.com/openark/orchestrator/go/golib/log"
+	"github.com/openark/orchestrator/go/golib/sqlutils"
 	"github.com/openark/orchestrator/go/db"
 )
 

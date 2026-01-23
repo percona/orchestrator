@@ -12,7 +12,7 @@ import (
 
 	"github.com/go-martini/martini"
 	"github.com/howeyc/gopass"
-	"github.com/openark/golib/log"
+	"github.com/openark/orchestrator/go/golib/log"
 	"github.com/openark/orchestrator/go/config"
 )
 

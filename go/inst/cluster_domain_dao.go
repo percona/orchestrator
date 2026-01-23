@@ -17,7 +17,7 @@
 package inst
 
 import (
-	"github.com/openark/golib/log"
+	"github.com/openark/orchestrator/go/golib/log"
 	"github.com/openark/orchestrator/go/config"
 	"github.com/openark/orchestrator/go/db"
 )
