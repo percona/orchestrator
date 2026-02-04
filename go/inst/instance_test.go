@@ -144,11 +144,11 @@ func TestCanReplicateFrom(t *testing.T) {
 	test.S(t).ExpectNotNil(err)
 	test.S(t).ExpectEquals(canReplicate, false)
 
-	config.Config.AllowLowerVersionForReplication = true
+	config.Config.LowerReplicaVersionAllowed = true
 	canReplicate, err = i56.CanReplicateFrom(&i80)
 	test.S(t).ExpectNotNil(err)
 	test.S(t).ExpectEquals(canReplicate, true)
-	config.Config.AllowLowerVersionForReplication = false
+	config.Config.LowerReplicaVersionAllowed = false
 
 	iStatement := Instance{Key: key1, Binlog_format: "STATEMENT", ServerID: 1, Version: "5.5", LogBinEnabled: true, LogReplicationUpdatesEnabled: true}
 	iRow := Instance{Key: key2, Binlog_format: "ROW", ServerID: 2, Version: "5.5", LogBinEnabled: true, LogReplicationUpdatesEnabled: true}

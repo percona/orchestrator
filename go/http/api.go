@@ -1519,14 +1519,10 @@ func (this *HttpAPI) CanReplicateFrom(params martini.Params, r render.Render, re
 		return
 	}
 
-	canReplicate, err := instance.CanReplicateFrom(belowInstance)
-	if !canReplicate {
+	canReplicate, err := instance.CanReplicateFromEx(belowInstance, "CanReplicateFrom()")
+	if err != nil {
 		Respond(r, &APIResponse{Code: ERROR, Message: err.Error()})
 		return
-	}
-
-	if err != nil {
-		log.Warningf("CanReplicateFrom(): %v", err)
 	}
 
 	Respond(r, &APIResponse{Code: OK, Message: fmt.Sprintf("%t", canReplicate), Details: belowKey})
@@ -1555,17 +1551,15 @@ func (this *HttpAPI) CanReplicateFromGTID(params martini.Params, r render.Render
 		return
 	}
 
-	canReplicate, err := instance.CanReplicateFrom(belowInstance)
-	if !canReplicate {
+	canReplicate, err := instance.CanReplicateFromEx(belowInstance, "CanReplicateFromGTID()")
+	if err != nil {
 		Respond(r, &APIResponse{Code: ERROR, Message: err.Error()})
 		return
 	}
-
-	if err != nil {
-		log.Warningf("CanReplicateFromGTID(): %v", err)
-		err = nil
+	if !canReplicate {
+		Respond(r, &APIResponse{Code: OK, Message: fmt.Sprintf("%t", canReplicate), Details: belowKey})
+		return
 	}
-
 	err = inst.CheckMoveViaGTID(instance, belowInstance)
 	if err != nil {
 		Respond(r, &APIResponse{Code: ERROR, Message: err.Error()})
