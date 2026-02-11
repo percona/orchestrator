@@ -1,6 +1,6 @@
 module github.com/openark/orchestrator
 
-go 1.25.5
+go 1.25.7
 
 require (
 	github.com/Showmax/go-fqdn v1.0.0
@@ -14,7 +14,7 @@ require (
 	github.com/martini-contrib/auth v0.0.0-20150219114609-fa62c19b7ae8
 	github.com/martini-contrib/gzip v0.0.0-20151124214156-6c035326b43f
 	github.com/martini-contrib/render v0.0.0-20150707142108-ec18f8345a11
-	github.com/mattn/go-sqlite3 v1.14.33
+	github.com/mattn/go-sqlite3 v1.14.34
 	github.com/montanaflynn/stats v0.7.1
 	github.com/openark/golib v0.0.0-20210531070646-355f37940af8
 	github.com/outbrain/zookeepercli v1.0.12
@@ -46,10 +46,10 @@ require (
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/outbrain/golib v0.0.0-20200503083229-2531e5dbcc71 // indirect
 	github.com/oxtoacart/bpool v0.0.0-20190530202638-03653db5a59c // indirect
-	golang.org/x/crypto v0.47.0 // indirect
-	golang.org/x/exp v0.0.0-20260112195511-716be5621a96 // indirect
-	golang.org/x/sys v0.40.0 // indirect
-	golang.org/x/term v0.39.0 // indirect
+	golang.org/x/crypto v0.48.0 // indirect
+	golang.org/x/exp v0.0.0-20260209203927-2842357ff358 // indirect
+	golang.org/x/sys v0.41.0 // indirect
+	golang.org/x/term v0.40.0 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 )
 
