@@ -220,7 +220,7 @@ func MajorVersion(version string) []string {
 }
 
 // IsSmallerMajorVersion tests two versions against another and returns true if
-// the former is a smaller "major" varsion than the latter.
+// the former is a smaller "major" version than the latter.
 // e.g. 5.5.36 is NOT a smaller major version as comapred to 5.5.40, but IS as compared to 5.6.9
 func IsSmallerMajorVersion(version string, otherVersion string) bool {
 	thisMajorVersion := MajorVersion(version)

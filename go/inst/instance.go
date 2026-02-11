@@ -24,6 +24,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/openark/golib/log"
 	"github.com/openark/golib/math"
 	"github.com/openark/orchestrator/go/config"
 )
@@ -448,6 +449,8 @@ func (this *Instance) IsDescendantOf(other *Instance) bool {
 // CanReplicateFrom uses heuristics to decide whether this instacne can practically replicate from other instance.
 // Checks are made to binlog format, version number, binary logs etc.
 func (this *Instance) CanReplicateFrom(other *Instance) (bool, error) {
+	var warningMsg error = nil
+
 	if this.Key.Equals(&other.Key) {
 		return false, fmt.Errorf("instance cannot replicate from itself: %+v", this.Key)
 	}
@@ -462,7 +465,10 @@ func (this *Instance) CanReplicateFrom(other *Instance) (bool, error) {
 		// Not OK for a replica, for it has to relay the logs.
 	}
 	if this.IsSmallerMajorVersion(other) && !this.IsBinlogServer() {
-		return false, fmt.Errorf("instance %+v has version %s, which is lower than %s on %+v ", this.Key, this.Version, other.Version, other.Key)
+		warningMsg = fmt.Errorf("instance %+v has version %s, which is lower than %s on %+v ", this.Key, this.Version, other.Version, other.Key)
+		if !config.Config.LowerReplicaVersionAllowed {
+			return false, warningMsg
+		}
 	}
 	if this.LogBinEnabled && this.LogReplicationUpdatesEnabled {
 		if this.IsSmallerBinlogFormat(other) {
@@ -483,7 +489,20 @@ func (this *Instance) CanReplicateFrom(other *Instance) (bool, error) {
 	if this.SQLDelay < other.SQLDelay && int64(other.SQLDelay) > int64(config.Config.ReasonableMaintenanceReplicationLagSeconds) {
 		return false, fmt.Errorf("%+v has higher SQL_Delay (%+v seconds) than %+v does (%+v seconds)", other.Key, other.SQLDelay, this.Key, this.SQLDelay)
 	}
-	return true, nil
+	return true, warningMsg
+}
+
+const logPrefix = "Replicating from higher version source is enabled by LowerReplicaVersionAllowed config parameter. " +
+	"Note that such a configuration is not officially supported by MySQL."
+
+func (this *Instance) CanReplicateFromEx(other *Instance, logContext string) (bool, error) {
+	canReplicate, err := this.CanReplicateFrom(other)
+
+	if config.Config.LowerReplicaVersionAllowed && canReplicate && err != nil {
+		log.Warningf("%v: %v Details: %v", logContext, logPrefix, err)
+		err = nil
+	}
+	return canReplicate, err
 }
 
 // HasReasonableMaintenanceReplicationLag returns true when the replica lag is reasonable, and maintenance operations should have a green light to go.

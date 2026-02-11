@@ -40,4 +40,11 @@ integration_tests() {
 }
 
 setup_mysql
-integration_tests
+if [ "$RUN_TESTS" == "YES" ] ; then
+  echo "Automatic tests start requested"
+  integration_tests
+else
+  echo "Automatic tests start skipped"
+  /bin/bash
+fi
+

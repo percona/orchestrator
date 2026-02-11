@@ -1519,7 +1519,7 @@ func (this *HttpAPI) CanReplicateFrom(params martini.Params, r render.Render, re
 		return
 	}
 
-	canReplicate, err := instance.CanReplicateFrom(belowInstance)
+	canReplicate, err := instance.CanReplicateFromEx(belowInstance, "CanReplicateFrom()")
 	if err != nil {
 		Respond(r, &APIResponse{Code: ERROR, Message: err.Error()})
 		return
@@ -1551,7 +1551,7 @@ func (this *HttpAPI) CanReplicateFromGTID(params martini.Params, r render.Render
 		return
 	}
 
-	canReplicate, err := instance.CanReplicateFrom(belowInstance)
+	canReplicate, err := instance.CanReplicateFromEx(belowInstance, "CanReplicateFromGTID()")
 	if err != nil {
 		Respond(r, &APIResponse{Code: ERROR, Message: err.Error()})
 		return

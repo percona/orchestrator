@@ -299,7 +299,7 @@ func MoveUp(instanceKey *InstanceKey) (*Instance, error) {
 		return instance, fmt.Errorf("master is not a replica itself: %+v", master.Key)
 	}
 
-	if canReplicate, err := instance.CanReplicateFrom(master); canReplicate == false {
+	if canReplicate, err := instance.CanReplicateFromEx(master, "MoveUp()"); canReplicate == false {
 		return instance, err
 	}
 	if master.IsBinlogServer() {
@@ -429,7 +429,7 @@ func MoveUpReplicas(instanceKey *InstanceKey, pattern string) ([](*Instance), *I
 
 			var replicaErr error
 			ExecuteOnTopology(func() {
-				if canReplicate, err := replica.CanReplicateFrom(instance); canReplicate == false || err != nil {
+				if canReplicate, err := replica.CanReplicateFromEx(instance, "MoveUpReplicas()"); canReplicate == false || err != nil {
 					replicaErr = err
 					return
 				}
@@ -527,7 +527,7 @@ func MoveBelow(instanceKey, siblingKey *InstanceKey) (*Instance, error) {
 		return instance, fmt.Errorf("instances are not siblings: %+v, %+v", *instanceKey, *siblingKey)
 	}
 
-	if canReplicate, err := instance.CanReplicateFrom(sibling); !canReplicate {
+	if canReplicate, err := instance.CanReplicateFromEx(sibling, "MoveBelow()"); !canReplicate {
 		return instance, err
 	}
 	log.Infof("Will move %+v below %+v", instanceKey, siblingKey)
@@ -629,7 +629,7 @@ func moveInstanceBelowViaGTID(instance, otherInstance *Instance) (*Instance, err
 		return instance, merr
 	}
 
-	if canReplicate, err := instance.CanReplicateFrom(otherInstance); !canReplicate {
+	if canReplicate, err := instance.CanReplicateFromEx(otherInstance, "moveInstanceBelowViaGTID()"); !canReplicate {
 		return instance, err
 	}
 	if err := CheckMoveViaGTID(instance, otherInstance); err != nil {
@@ -812,7 +812,7 @@ func Repoint(instanceKey *InstanceKey, masterKey *InstanceKey, gtidHint Operatio
 			return instance, err
 		}
 	}
-	if canReplicate, err := instance.CanReplicateFrom(master); !canReplicate {
+	if canReplicate, err := instance.CanReplicateFromEx(master, "Repoint()"); !canReplicate {
 		return instance, err
 	}
 
@@ -991,7 +991,7 @@ func MakeCoMaster(instanceKey *InstanceKey) (*Instance, error) {
 	} else if _, found, _ := ReadInstance(&master.MasterKey); found {
 		return instance, fmt.Errorf("%+v is not a real master; it replicates from: %+v", master.Key, master.MasterKey)
 	}
-	if canReplicate, err := master.CanReplicateFrom(instance); !canReplicate {
+	if canReplicate, err := master.CanReplicateFromEx(instance, "MakeCoMaster()"); !canReplicate {
 		return instance, err
 	}
 	log.Infof("Will make %+v co-master of %+v", instanceKey, master.Key)
@@ -1584,7 +1584,7 @@ func MatchBelow(instanceKey, otherKey *InstanceKey, requireInstanceMaintenance b
 		return instance, nil, merr
 	}
 
-	if canReplicate, err := instance.CanReplicateFrom(otherInstance); !canReplicate {
+	if canReplicate, err := instance.CanReplicateFromEx(otherInstance, "MatchBelow()"); !canReplicate {
 		return instance, nil, err
 	}
 	var nextBinlogCoordinatesToMatch *BinlogCoordinates
@@ -1791,9 +1791,10 @@ func TakeMaster(instanceKey *InstanceKey, allowTakingCoMaster bool) (*Instance, 
 	}
 	log.Debugf("TakeMaster: will attempt making %+v take its master %+v, now resolved as %+v", *instanceKey, instance.MasterKey, masterInstance.Key)
 
-	if canReplicate, err := masterInstance.CanReplicateFrom(instance); canReplicate == false {
+	if canReplicate, err := masterInstance.CanReplicateFromEx(instance, "TakeMaster()"); canReplicate == false {
 		return instance, err
 	}
+
 	// We begin
 	masterInstance, err = StopReplication(&masterInstance.Key)
 	if err != nil {
@@ -2245,7 +2246,7 @@ func chooseCandidateReplica(replicas [](*Instance)) (candidateReplica *Instance,
 	replicas = RemoveInstance(replicas, &candidateReplica.Key)
 	for _, replica := range replicas {
 		replica := replica
-		if canReplicate, err := replica.CanReplicateFrom(candidateReplica); !canReplicate {
+		if canReplicate, err := replica.CanReplicateFromEx(candidateReplica, "chooseCandidateReplica()"); !canReplicate {
 			// lost due to inability to replicate
 			cannotReplicateReplicas = append(cannotReplicateReplicas, replica)
 			if err != nil {
@@ -2658,7 +2659,7 @@ func RegroupReplicas(masterKey *InstanceKey, returnReplicaEvenOnFailureToRegroup
 // It may choose to use Pseudo-GTID, or normal binlog positions, or take advantage of binlog servers,
 // or it may combine any of the above in a multi-step operation.
 func relocateBelowInternal(instance, other *Instance) (*Instance, error) {
-	if canReplicate, err := instance.CanReplicateFrom(other); !canReplicate {
+	if canReplicate, err := instance.CanReplicateFromEx(other, "relocateBelowInternal()"); !canReplicate {
 		return instance, log.Errorf("%+v cannot replicate from %+v. Reason: %+v", instance.Key, other.Key, err)
 	}
 	// simplest:

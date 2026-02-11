@@ -101,6 +101,34 @@ test_single() {
   if [ -f $tests_path/$test_name/extra_args ] ; then
     extra_args=$(cat $tests_path/$test_name/extra_args)
   fi
+  
+  test_config_file_save="$test_config_file"
+  if [ -f "$tests_path/$test_name/config.json" ]; then
+    # There is no way to reload the configuration (partially) for integration tests
+    # so we need to provide a single JSON file.
+    # Let's merge the base config file with the provided one.
+    echo "- applying configuration: $tests_path/$test_name/config.json"
+    merged_config_path="/tmp/config_final.json"
+    real_config_path="$(realpath "$tests_path/$test_name/config.json")"
+
+    python3 - <<EOF
+import json
+
+with open("${test_config_file}") as f:
+    base = json.load(f)
+
+with open("$real_config_path") as f:
+    override = json.load(f)
+
+base.update(override)
+
+with open("$merged_config_path", "w") as out:
+    json.dump(base, out, indent=2)
+EOF
+
+    test_config_file="$merged_config_path"
+  fi
+
   #
   cmd="$orchestrator_binary \
     --config=${test_config_file}
@@ -114,6 +142,12 @@ test_single() {
 
   execution_result=$?
 
+  # restore the original config
+  if [ "$test_config_file" != "$test_config_file_save" ] ; then
+    rm -f "$test_config_file"
+  fi
+  test_config_file="$test_config_file_save"
+ 
   if [ -f $tests_path/$test_name/destroy.sql ] ; then
     run_queries $tests_path/$test_name/destroy.sql
   fi
@@ -203,7 +237,7 @@ test_all() {
   echo "- deploy_internal_db OK"
 
   test_pattern="${1:-.}"
-  find $tests_path -mindepth 1 -maxdepth 1 ! -path . -type d | xargs ls -td1 | cut -d "/" -f 4 | egrep "$test_pattern" | while read test_name ; do
+  find $tests_path -mindepth 1 -maxdepth 1 ! -path . -type d | xargs ls -d1 | cut -d "/" -f 4 | egrep "$test_pattern" | while read test_name ; do
     test_single "$test_name"
     if [ $? -ne 0 ] ; then
       echo "+ FAIL"

@@ -753,7 +753,7 @@ func Cli(command string, strict bool, instance string, destination string, owner
 			}
 			otherInstance := validateInstanceIsFound(destinationKey)
 
-			if canReplicate, _ := instance.CanReplicateFrom(otherInstance); canReplicate {
+			if canReplicate, _ := instance.CanReplicateFromEx(otherInstance, "CLI: can-replicate-from"); canReplicate {
 				fmt.Println(destinationKey.DisplayString())
 			}
 		}
