@@ -10,7 +10,7 @@
 >If you or your organization are willing to contribute resources or funding, please reach out to orchestrator@percona.com.
 
 
-# orchestrator [[Documentation]](https://github.com/openark/orchestrator/tree/master/docs)
+# orchestrator [[Documentation]](https://github.com/percona/orchestrator/tree/master/docs)
 
 
 ![Orchestrator logo](https://github.com/openark/orchestrator/raw/master/docs/images/orchestrator-logo-wide.png)
