@@ -1,11 +1,15 @@
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package raft
 
 import (
 	"errors"
 	"io"
-	"log"
 	"net"
 	"time"
+
+	"github.com/hashicorp/go-hclog"
 )
 
 var (
@@ -28,7 +32,7 @@ func NewTCPTransport(
 	timeout time.Duration,
 	logOutput io.Writer,
 ) (*NetworkTransport, error) {
-	return newTCPTransport(bindAddr, advertise, maxPool, timeout, func(stream StreamLayer) *NetworkTransport {
+	return newTCPTransport(bindAddr, advertise, func(stream StreamLayer) *NetworkTransport {
 		return NewNetworkTransport(stream, maxPool, timeout, logOutput)
 	})
 }
@@ -40,17 +44,28 @@ func NewTCPTransportWithLogger(
 	advertise net.Addr,
 	maxPool int,
 	timeout time.Duration,
-	logger *log.Logger,
+	logger hclog.Logger,
 ) (*NetworkTransport, error) {
-	return newTCPTransport(bindAddr, advertise, maxPool, timeout, func(stream StreamLayer) *NetworkTransport {
+	return newTCPTransport(bindAddr, advertise, func(stream StreamLayer) *NetworkTransport {
 		return NewNetworkTransportWithLogger(stream, maxPool, timeout, logger)
+	})
+}
+
+// NewTCPTransportWithConfig returns a NetworkTransport that is built on top of
+// a TCP streaming transport layer, using the given config struct.
+func NewTCPTransportWithConfig(
+	bindAddr string,
+	advertise net.Addr,
+	config *NetworkTransportConfig,
+) (*NetworkTransport, error) {
+	return newTCPTransport(bindAddr, advertise, func(stream StreamLayer) *NetworkTransport {
+		config.Stream = stream
+		return NewNetworkTransportWithConfig(config)
 	})
 }
 
 func newTCPTransport(bindAddr string,
 	advertise net.Addr,
-	maxPool int,
-	timeout time.Duration,
 	transportCreator func(stream StreamLayer) *NetworkTransport) (*NetworkTransport, error) {
 	// Try to bind
 	list, err := net.Listen("tcp", bindAddr)
@@ -70,7 +85,7 @@ func newTCPTransport(bindAddr string,
 		list.Close()
 		return nil, errNotTCP
 	}
-	if addr.IP.IsUnspecified() {
+	if addr.IP == nil || addr.IP.IsUnspecified() {
 		list.Close()
 		return nil, errNotAdvertisable
 	}
@@ -81,8 +96,8 @@ func newTCPTransport(bindAddr string,
 }
 
 // Dial implements the StreamLayer interface.
-func (t *TCPStreamLayer) Dial(address string, timeout time.Duration) (net.Conn, error) {
-	return net.DialTimeout("tcp", address, timeout)
+func (t *TCPStreamLayer) Dial(address ServerAddress, timeout time.Duration) (net.Conn, error) {
+	return net.DialTimeout("tcp", string(address), timeout)
 }
 
 // Accept implements the net.Listener interface.

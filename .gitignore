@@ -3,6 +3,8 @@ conf/orchestrator.conf.json
 .vscode/
 .DS_Store
 .vagrant/
+.serena/
+.claude/
 vagrant/.sqlite
 vagrant/admin-post-install.sh
 vagrant/db-post-install.sh

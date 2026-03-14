@@ -232,7 +232,7 @@ func GetLeader() string {
 	if !isRaftSetupComplete() {
 		return ""
 	}
-	return getRaft().Leader()
+	return string(getRaft().Leader())
 }
 
 func QuorumSize() (int, error) {
@@ -274,14 +274,15 @@ func AsyncSnapshot() error {
 }
 
 func StepDown() {
-	getRaft().StepDown()
+	getRaft().LeadershipTransfer()
 }
 
 func Yield() error {
 	if !IsRaftEnabled() {
 		return RaftNotRunning
 	}
-	return getRaft().Yield()
+	f := getRaft().LeadershipTransfer()
+	return f.Error()
 }
 
 func GetRaftBind() string {
@@ -296,7 +297,15 @@ func GetPeers() ([]string, error) {
 	if !IsRaftEnabled() {
 		return []string{}, RaftNotRunning
 	}
-	return store.peerStore.Peers()
+	f := getRaft().GetConfiguration()
+	if err := f.Error(); err != nil {
+		return nil, err
+	}
+	var peers []string
+	for _, server := range f.Configuration().Servers {
+		peers = append(peers, string(server.Address))
+	}
+	return peers, nil
 }
 
 func IsPeer(peer string) (bool, error) {

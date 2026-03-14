@@ -134,7 +134,7 @@ func snapshotName(term, index uint64) string {
 }
 
 // Create is used to start a new snapshot
-func (f *FileSnapshotStore) Create(index, term uint64, peers []byte) (raft.SnapshotSink, error) {
+func (f *FileSnapshotStore) Create(version raft.SnapshotVersion, index, term uint64, configuration raft.Configuration, configurationIndex uint64, trans raft.Transport) (raft.SnapshotSink, error) {
 	// Create a new path
 	name := snapshotName(term, index)
 	path := filepath.Join(f.path, name+tmpSuffix)
@@ -152,10 +152,12 @@ func (f *FileSnapshotStore) Create(index, term uint64, peers []byte) (raft.Snaps
 		dir:   path,
 		meta: fileSnapshotMeta{
 			SnapshotMeta: raft.SnapshotMeta{
-				ID:    name,
-				Index: index,
-				Term:  term,
-				Peers: peers,
+				Version:            version,
+				ID:                 name,
+				Index:              index,
+				Term:               term,
+				Configuration:      configuration,
+				ConfigurationIndex: configurationIndex,
 			},
 			CRC: nil,
 		},

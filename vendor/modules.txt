@@ -49,9 +49,9 @@ github.com/hashicorp/go-immutable-radix
 ## explicit; go 1.12
 github.com/hashicorp/go-metrics
 github.com/hashicorp/go-metrics/compat
-# github.com/hashicorp/go-msgpack v0.5.5
-## explicit
-github.com/hashicorp/go-msgpack/codec
+# github.com/hashicorp/go-msgpack/v2 v2.1.2
+## explicit; go 1.19
+github.com/hashicorp/go-msgpack/v2/codec
 # github.com/hashicorp/go-multierror v1.1.1
 ## explicit; go 1.13
 github.com/hashicorp/go-multierror
@@ -61,8 +61,8 @@ github.com/hashicorp/go-rootcerts
 # github.com/hashicorp/golang-lru v1.0.2
 ## explicit; go 1.12
 github.com/hashicorp/golang-lru/simplelru
-# github.com/hashicorp/raft v1.7.3 => github.com/openark/raft v0.0.0-20170918052300-fba9f909f7fe
-## explicit
+# github.com/hashicorp/raft v1.7.3
+## explicit; go 1.20
 github.com/hashicorp/raft
 # github.com/hashicorp/serf v0.10.2
 ## explicit; go 1.19
@@ -146,7 +146,6 @@ gopkg.in/gcfg.v1/types
 # gopkg.in/warnings.v0 v0.1.2
 ## explicit
 gopkg.in/warnings.v0
-# github.com/hashicorp/raft => github.com/openark/raft v0.0.0-20170918052300-fba9f909f7fe
 # github.com/openark/golib => ./go/golib
 # golang.org/x/text v0.3.0 => golang.org/x/text v0.3.8
 # golang.org/x/text v0.3.7 => golang.org/x/text v0.3.8

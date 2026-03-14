@@ -36,7 +36,7 @@ require (
 	github.com/hashicorp/go-hclog v1.6.3 // indirect
 	github.com/hashicorp/go-immutable-radix v1.3.1 // indirect
 	github.com/hashicorp/go-metrics v0.5.4 // indirect
-	github.com/hashicorp/go-msgpack v0.5.5 // indirect
+	github.com/hashicorp/go-msgpack/v2 v2.1.2 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/hashicorp/go-rootcerts v1.0.3-0.20191216101743-c8a9a31cbd76 // indirect
 	github.com/hashicorp/golang-lru v1.0.2 // indirect
@@ -54,7 +54,6 @@ require (
 )
 
 replace (
-	github.com/hashicorp/raft => github.com/openark/raft v0.0.0-20170918052300-fba9f909f7fe
 	github.com/openark/golib => ./go/golib
 	golang.org/x/text v0.3.0 => golang.org/x/text v0.3.8
 	golang.org/x/text v0.3.7 => golang.org/x/text v0.3.8
