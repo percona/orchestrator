@@ -1,18 +1,18 @@
-raft [![Build Status](https://travis-ci.org/hashicorp/raft.png)](https://travis-ci.org/hashicorp/raft)
+raft [![Build Status](https://github.com/hashicorp/raft/workflows/ci/badge.svg)](https://github.com/hashicorp/raft/actions)
 ====
 
 raft is a [Go](http://www.golang.org) library that manages a replicated
 log and can be used with an FSM to manage replicated state machines. It
 is a library for providing [consensus](http://en.wikipedia.org/wiki/Consensus_(computer_science)).
 
-The use cases for such a library are far-reaching as replicated state
-machines are a key component of many distributed systems. They enable
+The use cases for such a library are far-reaching, such as replicated state
+machines which are a key component of many distributed systems. They enable
 building Consistent, Partition Tolerant (CP) systems, with limited
 fault tolerance as well.
 
 ## Building
 
-If you wish to build raft you'll need Go version 1.2+ installed.
+If you wish to build raft you'll need Go version 1.16+ installed.
 
 Please check your installation with:
 
@@ -28,16 +28,40 @@ To prevent complications with cgo, the primary backend `MDBStore` is in a separa
 called [raft-mdb](http://github.com/hashicorp/raft-mdb). That is the recommended implementation
 for the `LogStore` and `StableStore`.
 
-A pure Go backend using [BoltDB](https://github.com/boltdb/bolt) is also available called
+A pure Go backend using [Bbolt](https://github.com/etcd-io/bbolt) is also available called
 [raft-boltdb](https://github.com/hashicorp/raft-boltdb). It can also be used as a `LogStore`
 and `StableStore`.
 
+
+## Community Contributed Examples 
+- [Raft gRPC Example](https://github.com/Jille/raft-grpc-example) - Utilizing the Raft repository with gRPC
+- [Raft-based KV-store Example](https://github.com/otoolep/hraftd) - Uses Hashicorp Raft to build a distributed key-value store
+
+
+## Tagged Releases
+
+As of September 2017, HashiCorp will start using tags for this library to clearly indicate
+major version updates. We recommend you vendor your application's dependency on this library.
+
+* v0.1.0 is the original stable version of the library that was in main and has been maintained
+with no breaking API changes. This was in use by Consul prior to version 0.7.0.
+
+* v1.0.0 takes the changes that were staged in the library-v2-stage-one branch. This version
+manages server identities using a UUID, so introduces some breaking API changes. It also versions
+the Raft protocol, and requires some special steps when interoperating with Raft servers running
+older versions of the library (see the detailed comment in config.go about version compatibility).
+You can reference https://github.com/hashicorp/consul/pull/2222 for an idea of what was required
+to port Consul to these new interfaces.
+
+    This version includes some new features as well, including non voting servers, a new address
+    provider abstraction in the transport layer, and more resilient snapshots.
+
 ## Protocol
 
-raft is based on ["Raft: In Search of an Understandable Consensus Algorithm"](https://ramcloud.stanford.edu/wiki/download/attachments/11370504/raft.pdf)
+raft is based on ["Raft: In Search of an Understandable Consensus Algorithm"](https://raft.github.io/raft.pdf)
 
 A high level overview of the Raft protocol is described below, but for details please read the full
-[Raft paper](https://ramcloud.stanford.edu/wiki/download/attachments/11370504/raft.pdf)
+[Raft paper](https://raft.github.io/raft.pdf)
 followed by the raft source. Any questions about the raft protocol should be sent to the
 [raft-dev mailing list](https://groups.google.com/forum/#!forum/raft-dev).
 
@@ -87,3 +111,28 @@ In terms of performance, Raft is comparable to Paxos. Assuming stable leadership
 committing a log entry requires a single round trip to half of the cluster.
 Thus performance is bound by disk I/O and network latency.
 
+
+  ## Metrics Emission and Compatibility
+
+  This library can emit metrics using either `github.com/armon/go-metrics` or `github.com/hashicorp/go-metrics`. Choosing between the libraries is controlled via build tags. 
+
+  **Build Tags**
+  * `armonmetrics` - Using this tag will cause metrics to be routed to `armon/go-metrics`
+  * `hashicorpmetrics` - Using this tag will cause all metrics to be routed to `hashicorp/go-metrics`
+
+  If no build tag is specified, the default behavior is to use `armon/go-metrics`. 
+
+  **Deprecating `armon/go-metrics`**
+
+  Emitting metrics to `armon/go-metrics` is officially deprecated. Usage of `armon/go-metrics` will remain the default until mid-2025 with opt-in support continuing to the end of 2025.
+
+  **Migration**
+  To migrate an application currently using the older `armon/go-metrics` to instead use `hashicorp/go-metrics` the following should be done.
+
+  1. Upgrade libraries using `armon/go-metrics` to consume `hashicorp/go-metrics/compat` instead. This should involve only changing import statements. All repositories in the `hashicorp` namespace
+  2. Update an applications library dependencies to those that have the compatibility layer configured.
+  3. Update the application to use `hashicorp/go-metrics` for configuring metrics export instead of `armon/go-metrics`
+     * Replace all application imports of `github.com/armon/go-metrics` with `github.com/hashicorp/go-metrics`
+     * Instrument your build system to build with the `hashicorpmetrics` tag.
+
+  Eventually once the default behavior changes to use `hashicorp/go-metrics` by default (mid-2025), you can drop the `hashicorpmetrics` build tag.

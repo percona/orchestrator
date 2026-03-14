@@ -1,3 +1,6 @@
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package raft
 
 import (
@@ -30,6 +33,16 @@ func NewLogCache(capacity int, store LogStore) (*LogCache, error) {
 	return c, nil
 }
 
+// IsMonotonic implements the MonotonicLogStore interface. This is a shim to
+// expose the underlying store as monotonically indexed or not.
+func (c *LogCache) IsMonotonic() bool {
+	if store, ok := c.store.(MonotonicLogStore); ok {
+		return store.IsMonotonic()
+	}
+
+	return false
+}
+
 func (c *LogCache) GetLog(idx uint64, log *Log) error {
 	// Check the buffer for an entry
 	c.l.RLock()
@@ -51,14 +64,17 @@ func (c *LogCache) StoreLog(log *Log) error {
 }
 
 func (c *LogCache) StoreLogs(logs []*Log) error {
-	// Insert the logs into the ring buffer
+	err := c.store.StoreLogs(logs)
+	// Insert the logs into the ring buffer, but only on success
+	if err != nil {
+		return fmt.Errorf("unable to store logs within log store, err: %q", err)
+	}
 	c.l.Lock()
 	for _, l := range logs {
 		c.cache[l.Index%uint64(len(c.cache))] = l
 	}
 	c.l.Unlock()
-
-	return c.store.StoreLogs(logs)
+	return nil
 }
 
 func (c *LogCache) FirstIndex() (uint64, error) {

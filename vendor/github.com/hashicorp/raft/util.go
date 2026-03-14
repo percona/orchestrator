@@ -1,3 +1,6 @@
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package raft
 
 import (
@@ -9,11 +12,11 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/hashicorp/go-msgpack/codec"
+	"github.com/hashicorp/go-msgpack/v2/codec"
 )
 
 func init() {
-	// Ensure we use a high-entropy seed for the psuedo-random generator
+	// Ensure we use a high-entropy seed for the pseudo-random generator
 	rand.Seed(newSeed())
 }
 
@@ -32,7 +35,7 @@ func randomTimeout(minVal time.Duration) <-chan time.Time {
 	if minVal == 0 {
 		return nil
 	}
-	extra := (time.Duration(rand.Int63()) % minVal)
+	extra := time.Duration(rand.Int63()) % minVal
 	return time.After(minVal + extra)
 }
 
@@ -76,6 +79,17 @@ func asyncNotifyCh(ch chan struct{}) {
 	}
 }
 
+// drainNotifyCh empties out a single-item notification channel without
+// blocking, and returns whether it received anything.
+func drainNotifyCh(ch chan struct{}) bool {
+	select {
+	case <-ch:
+		return true
+	default:
+		return false
+	}
+}
+
 // asyncNotifyBool is used to do an async notification
 // on a bool channel.
 func asyncNotifyBool(ch chan bool, v bool) {
@@ -85,68 +99,23 @@ func asyncNotifyBool(ch chan bool, v bool) {
 	}
 }
 
-// ExcludePeer is used to exclude a single peer from a list of peers.
-func ExcludePeer(peers []string, peer string) []string {
-	otherPeers := make([]string, 0, len(peers))
-	for _, p := range peers {
-		if p != peer {
-			otherPeers = append(otherPeers, p)
+// overrideNotifyBool is used to notify on a bool channel
+// but override existing value if value is present.
+// ch must be 1-item buffered channel.
+//
+// This method does not support multiple concurrent calls.
+func overrideNotifyBool(ch chan bool, v bool) {
+	select {
+	case ch <- v:
+		// value sent, all done
+	case <-ch:
+		// channel had an old value
+		select {
+		case ch <- v:
+		default:
+			panic("race: channel was sent concurrently")
 		}
 	}
-	return otherPeers
-}
-
-// PeerContained checks if a given peer is contained in a list.
-func PeerContained(peers []string, peer string) bool {
-	for _, p := range peers {
-		if p == peer {
-			return true
-		}
-	}
-	return false
-}
-
-// AddUniquePeer is used to add a peer to a list of existing
-// peers only if it is not already contained.
-func AddUniquePeer(peers []string, peer string) []string {
-	if PeerContained(peers, peer) {
-		return peers
-	}
-	return append(peers, peer)
-}
-
-// encodePeers is used to serialize a list of peers.
-func encodePeers(peers []string, trans Transport) []byte {
-	// Encode each peer
-	var encPeers [][]byte
-	for _, p := range peers {
-		encPeers = append(encPeers, trans.EncodePeer(p))
-	}
-
-	// Encode the entire array
-	buf, err := encodeMsgPack(encPeers)
-	if err != nil {
-		panic(fmt.Errorf("failed to encode peers: %v", err))
-	}
-
-	return buf.Bytes()
-}
-
-// decodePeers is used to deserialize a list of peers.
-func decodePeers(buf []byte, trans Transport) []string {
-	// Decode the buffer first
-	var encPeers [][]byte
-	if err := decodeMsgPack(buf, &encPeers); err != nil {
-		panic(fmt.Errorf("failed to decode peers: %v", err))
-	}
-
-	// Deserialize each peer
-	var peers []string
-	for _, enc := range encPeers {
-		peers = append(peers, trans.DecodePeer(enc))
-	}
-
-	return peers
 }
 
 // Decode reverses the encode operation on a byte slice input.
@@ -160,7 +129,11 @@ func decodeMsgPack(buf []byte, out interface{}) error {
 // Encode writes an encoded object to a new bytes buffer.
 func encodeMsgPack(in interface{}) (*bytes.Buffer, error) {
 	buf := bytes.NewBuffer(nil)
-	hd := codec.MsgpackHandle{}
+	hd := codec.MsgpackHandle{
+		BasicHandle: codec.BasicHandle{
+			TimeNotBuiltin: true,
+		},
+	}
 	enc := codec.NewEncoder(buf, &hd)
 	err := enc.Encode(in)
 	return buf, err
@@ -177,3 +150,27 @@ func backoff(base time.Duration, round, limit uint64) time.Duration {
 	}
 	return base
 }
+
+// cappedExponentialBackoff computes the exponential backoff with an adjustable
+// cap on the max timeout.
+func cappedExponentialBackoff(base time.Duration, round, limit uint64, cap time.Duration) time.Duration {
+	power := min(round, limit)
+	for power > 2 {
+		if base > cap {
+			return cap
+		}
+		base *= 2
+		power--
+	}
+	if base > cap {
+		return cap
+	}
+	return base
+}
+
+// Needed for sorting []uint64, used to determine commitment
+type uint64Slice []uint64
+
+func (p uint64Slice) Len() int           { return len(p) }
+func (p uint64Slice) Less(i, j int) bool { return p[i] < p[j] }
+func (p uint64Slice) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }

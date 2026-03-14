@@ -1,34 +1,73 @@
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package raft
 
 import (
+	"fmt"
+	"io"
 	"sync"
 	"time"
 )
 
 // Future is used to represent an action that may occur in the future.
 type Future interface {
-	// Error blocks until the future arrives and then
-	// returns the error status of the future.
-	// This may be called any number of times - all
-	// calls will return the same value.
-	// Note that it is not OK to call this method
-	// twice concurrently on the same Future instance.
+	// Error blocks until the future arrives and then returns the error status
+	// of the future. This may be called any number of times - all calls will
+	// return the same value, however is not OK to call this method twice
+	// concurrently on the same Future instance.
+	// Error will only return generic errors related to raft, such
+	// as ErrLeadershipLost, or ErrRaftShutdown. Some operations, such as
+	// ApplyLog, may also return errors from other methods.
 	Error() error
 }
 
-// ApplyFuture is used for Apply() and may return the FSM response.
-type ApplyFuture interface {
+// IndexFuture is used for future actions that can result in a raft log entry
+// being created.
+type IndexFuture interface {
 	Future
 
-	// Response returns the FSM response as returned
-	// by the FSM.Apply method. This must not be called
-	// until after the Error method has returned.
-	Response() interface{}
-
 	// Index holds the index of the newly applied log entry.
-	// This must not be called
-	// until after the Error method has returned.
+	// This must not be called until after the Error method has returned.
 	Index() uint64
+}
+
+// ApplyFuture is used for Apply and can return the FSM response.
+type ApplyFuture interface {
+	IndexFuture
+
+	// Response returns the FSM response as returned by the FSM.Apply method. This
+	// must not be called until after the Error method has returned.
+	// Note that if FSM.Apply returns an error, it will be returned by Response,
+	// and not by the Error method, so it is always important to check Response
+	// for errors from the FSM.
+	Response() interface{}
+}
+
+// ConfigurationFuture is used for GetConfiguration and can return the
+// latest configuration in use by Raft.
+type ConfigurationFuture interface {
+	IndexFuture
+
+	// Configuration contains the latest configuration. This must
+	// not be called until after the Error method has returned.
+	Configuration() Configuration
+}
+
+// SnapshotFuture is used for waiting on a user-triggered snapshot to complete.
+type SnapshotFuture interface {
+	Future
+
+	// Open is a function you can call to access the underlying snapshot and
+	// its metadata. This must not be called until after the Error method
+	// has returned.
+	Open() (*SnapshotMeta, io.ReadCloser, error)
+}
+
+// LeadershipTransferFuture is used for waiting on a user-triggered leadership
+// transfer to complete.
+type LeadershipTransferFuture interface {
+	Future
 }
 
 // errorFuture is used to return a static error.
@@ -51,9 +90,10 @@ func (e errorFuture) Index() uint64 {
 // deferError can be embedded to allow a future
 // to provide an error in the future.
 type deferError struct {
-	err       error
-	errCh     chan error
-	responded bool
+	err        error
+	errCh      chan error
+	responded  bool
+	ShutdownCh chan struct{}
 }
 
 func (d *deferError) init() {
@@ -70,7 +110,11 @@ func (d *deferError) Error() error {
 	if d.errCh == nil {
 		panic("waiting for response on nil channel")
 	}
-	d.err = <-d.errCh
+	select {
+	case d.err = <-d.errCh:
+	case <-d.ShutdownCh:
+		d.err = ErrRaftShutdown
+	}
 	return d.err
 }
 
@@ -86,12 +130,28 @@ func (d *deferError) respond(err error) {
 	d.responded = true
 }
 
+// There are several types of requests that cause a configuration entry to
+// be appended to the log. These are encoded here for leaderLoop() to process.
+// This is internal to a single server.
+type configurationChangeFuture struct {
+	logFuture
+	req configurationChangeRequest
+}
+
+// bootstrapFuture is used to attempt a live bootstrap of the cluster. See the
+// Raft object's BootstrapCluster member function for more details.
+type bootstrapFuture struct {
+	deferError
+
+	// configuration is the proposed bootstrap configuration to apply.
+	configuration Configuration
+}
+
 // logFuture is used to apply a log entry and waits until
 // the log is considered committed.
 type logFuture struct {
 	deferError
 	log      Log
-	policy   quorumPolicy
 	response interface{}
 	dispatch time.Time
 }
@@ -102,11 +162,6 @@ func (l *logFuture) Response() interface{} {
 
 func (l *logFuture) Index() uint64 {
 	return l.log.Index
-}
-
-type peerFuture struct {
-	deferError
-	peers []string
 }
 
 type shutdownFuture struct {
@@ -124,9 +179,40 @@ func (s *shutdownFuture) Error() error {
 	return nil
 }
 
-// snapshotFuture is used for waiting on a snapshot to complete.
-type snapshotFuture struct {
+// userSnapshotFuture is used for waiting on a user-triggered snapshot to
+// complete.
+type userSnapshotFuture struct {
 	deferError
+
+	// opener is a function used to open the snapshot. This is filled in
+	// once the future returns with no error.
+	opener func() (*SnapshotMeta, io.ReadCloser, error)
+}
+
+// Open is a function you can call to access the underlying snapshot and its
+// metadata.
+func (u *userSnapshotFuture) Open() (*SnapshotMeta, io.ReadCloser, error) {
+	if u.opener == nil {
+		return nil, nil, fmt.Errorf("no snapshot available")
+	}
+	// Invalidate the opener so it can't get called multiple times,
+	// which isn't generally safe.
+	defer func() {
+		u.opener = nil
+	}()
+	return u.opener()
+}
+
+// userRestoreFuture is used for waiting on a user-triggered restore of an
+// external snapshot to complete.
+type userRestoreFuture struct {
+	deferError
+
+	// meta is the metadata that belongs with the snapshot.
+	meta *SnapshotMeta
+
+	// reader is the interface to read the snapshot contents from.
+	reader io.Reader
 }
 
 // reqSnapshotFuture is used for requesting a snapshot start.
@@ -137,7 +223,6 @@ type reqSnapshotFuture struct {
 	// snapshot details provided by the FSM runner before responding
 	index    uint64
 	term     uint64
-	peers    []string
 	snapshot FSMSnapshot
 }
 
@@ -156,6 +241,32 @@ type verifyFuture struct {
 	quorumSize int
 	votes      int
 	voteLock   sync.Mutex
+}
+
+// leadershipTransferFuture is used to track the progress of a leadership
+// transfer internally.
+type leadershipTransferFuture struct {
+	deferError
+
+	ID      *ServerID
+	Address *ServerAddress
+}
+
+// configurationsFuture is used to retrieve the current configurations. This is
+// used to allow safe access to this information outside of the main thread.
+type configurationsFuture struct {
+	deferError
+	configurations configurations
+}
+
+// Configuration returns the latest configuration in use by Raft.
+func (c *configurationsFuture) Configuration() Configuration {
+	return c.configurations.latest
+}
+
+// Index returns the index of the latest configuration in use by Raft.
+func (c *configurationsFuture) Index() uint64 {
+	return c.configurations.latestIndex
 }
 
 // vote is used to respond to a verifyFuture.
