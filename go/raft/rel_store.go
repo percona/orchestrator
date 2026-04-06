@@ -217,7 +217,11 @@ func (relStore *RelationalStore) StoreLogs(logs []*raft.Log) error {
 		return err
 	}
 	for _, raftLog := range logs {
-		_, err = stmt.Exec(raftLog.Index, raftLog.Term, int(raftLog.Type), raftLog.Data)
+		data := raftLog.Data
+		if data == nil {
+			data = []byte{}
+		}
+		_, err = stmt.Exec(raftLog.Index, raftLog.Term, int(raftLog.Type), data)
 		if err != nil {
 			tx.Rollback()
 			return err

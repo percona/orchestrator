@@ -3104,6 +3104,7 @@ func (this *HttpAPI) RaftStatus(params martini.Params, r render.Render, req *htt
 		Leader         string
 		LeaderURI      string
 		Peers          []string
+		Stats          map[string]string
 	}{
 		RaftBind:       orcraft.GetRaftBind(),
 		RaftAdvertise:  orcraft.GetRaftAdvertise(),
@@ -3113,6 +3114,7 @@ func (this *HttpAPI) RaftStatus(params martini.Params, r render.Render, req *htt
 		Leader:         orcraft.GetLeader(),
 		LeaderURI:      orcraft.LeaderURI.Get(),
 		Peers:          peers,
+		Stats:          orcraft.GetStats(),
 	}
 	r.JSON(http.StatusOK, status)
 }

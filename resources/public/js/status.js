@@ -15,6 +15,11 @@ function addRaftTableData(name, column1, column2) {
     '<td><code class="text-info">' + column2 + '</code></td></tr>'
 	);
 }
+function addRaftSeparator() {
+	$(".status-table-raft").append(
+		'<tr><td colspan="3"><hr style="margin:5px 0"></td></tr>'
+	);
+}
 function addStatusActionButton(name, uri) {
 	$("#orchestratorStatus .panel-footer").append(
 		'<button type="button" class="btn btn-sm btn-info">'+name+'</button> '
@@ -98,6 +103,56 @@ $(document).ready(function () {
 					}
 					addRaftTableData("Healthy raft member", message, "");
 				})
+			}
+
+			// Raft detailed status (from the same health response, no separate request)
+			var stats = health.Details.RaftStats;
+			if (stats) {
+				addRaftSeparator();
+
+				addRaftTableData("State", '<code>' + health.Details.RaftState + '</code>', health.Details.RaftHealthy ? '<span class="text-success">healthy</span>' : '<span class="text-danger">unhealthy</span>');
+				addRaftTableData("Quorum member", '', health.Details.RaftIsPartOfQuorum ? '<span class="text-success">yes</span>' : '<span class="text-danger">no</span>');
+				addRaftTableData("Bind address", '<code>' + health.Details.RaftBind + '</code>', '');
+				addRaftTableData("Advertise address", '<code>' + health.Details.RaftAdvertise + '</code>', '');
+
+				addRaftSeparator();
+
+				addRaftTableData("Term", '', '<code>' + (stats["term"] || "n/a") + '</code>');
+				addRaftTableData("Commit index", '', '<code>' + (stats["commit_index"] || "n/a") + '</code>');
+				addRaftTableData("Applied index", '', '<code>' + (stats["applied_index"] || "n/a") + '</code>');
+				addRaftTableData("Last log index", '', '<code>' + (stats["last_log_index"] || "n/a") + '</code>');
+				addRaftTableData("Last log term", '', '<code>' + (stats["last_log_term"] || "n/a") + '</code>');
+				addRaftTableData("FSM pending", '', '<code>' + (stats["fsm_pending"] || "0") + '</code>');
+
+				addRaftSeparator();
+
+				addRaftTableData("Last snapshot index", '', '<code>' + (stats["last_snapshot_index"] || "n/a") + '</code>');
+				addRaftTableData("Last snapshot term", '', '<code>' + (stats["last_snapshot_term"] || "n/a") + '</code>');
+
+				addRaftSeparator();
+
+				addRaftTableData("Protocol version", '', '<code>' + (stats["protocol_version"] || "n/a") + '</code>');
+				addRaftTableData("Num peers", '', '<code>' + (stats["num_peers"] || "0") + '</code>');
+
+				if (stats["last_contact"]) {
+					addRaftTableData("Last contact", '', '<code>' + stats["last_contact"] + '</code>');
+				}
+
+				// Show peers list
+				var peers = health.Details.RaftPeers;
+				if (peers && peers.length > 0) {
+					addRaftSeparator();
+					peers.forEach(function(peer) {
+						var peerLabel = '<code>' + peer + '</code>';
+						if (peer == health.Details.RaftAdvertise + ':10008' || peer == health.Details.RaftBind) {
+							peerLabel += ' <span class="text-primary">[This node]</span>';
+						}
+						if (peer == health.Details.RaftLeader) {
+							peerLabel += ' <span class="text-success">[Leader]</span>';
+						}
+						addRaftTableData("Peer", peerLabel, '');
+					});
+				}
 			}
 
     	if (isAuthorizedForAction()) {

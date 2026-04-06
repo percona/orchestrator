@@ -86,12 +86,8 @@ func (store *Store) Open(peerNodes []string) error {
 	logStore := NewRelationalStore(store.raftDir)
 	log.Debugf("raft: logStore=%+v", logStore)
 
-	// Instantiate the Raft systems.
-	if store.raft, err = raft.NewRaft(config, (*fsm)(store), logStore, logStore, snapshots, transport); err != nil {
-		return fmt.Errorf("error creating new raft: %s", err)
-	}
-
-	// Bootstrap if needed: no existing state and either no peers or single-node mode.
+	// Bootstrap if needed: must happen BEFORE NewRaft so the configuration
+	// is in the log store when the raft node starts.
 	hasState, err := raft.HasExistingState(logStore, logStore, snapshots)
 	if err != nil {
 		return fmt.Errorf("error checking existing state: %s", err)
@@ -134,6 +130,12 @@ func (store *Store) Open(peerNodes []string) error {
 			return fmt.Errorf("error bootstrapping cluster: %s", err)
 		}
 		log.Infof("raft: cluster bootstrapped with %d servers", len(servers))
+	}
+
+	// Instantiate the Raft systems. NewRaft reads the bootstrapped configuration
+	// from the log store and starts the election process.
+	if store.raft, err = raft.NewRaft(config, (*fsm)(store), logStore, logStore, snapshots, transport); err != nil {
+		return fmt.Errorf("error creating new raft: %s", err)
 	}
 
 	log.Infof("new raft created")

@@ -20,7 +20,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/rand"
-	"net"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -175,32 +174,13 @@ func getRaft() *raft.Raft {
 	return store.raft
 }
 
-func normalizeRaftHostnameIP(host string) (string, error) {
-	if ip := net.ParseIP(host); ip != nil {
-		// this is a valid IP address.
-		return host, nil
-	}
-	ips, err := net.LookupIP(host)
-	if err != nil {
-		// resolve failed. But we don't want to fail the entire operation for that
-		log.Errore(err)
-		return host, nil
-	}
-	// resolve success!
-	for _, ip := range ips {
-		return ip.String(), nil
-	}
-	return host, fmt.Errorf("%+v resolved but no IP found", host)
-}
-
-// normalizeRaftNode attempts to make sure there's a port to the given node.
-// It consults the DefaultRaftPort when there isn't
+// normalizeRaftNode ensures a port is present on the given node address.
+// It consults the DefaultRaftPort when there isn't one.
+// Hostnames are kept as-is (not resolved to IPs) so that all nodes produce
+// the same server IDs regardless of DNS timing at startup.
 func normalizeRaftNode(node string) (string, error) {
 	hostPort := strings.Split(node, ":")
-	host, err := normalizeRaftHostnameIP(hostPort[0])
-	if err != nil {
-		return host, err
-	}
+	host := hostPort[0]
 	if len(hostPort) > 1 {
 		return fmt.Sprintf("%s:%s", host, hostPort[1]), nil
 	} else if config.Config.DefaultRaftPort != 0 {
@@ -291,6 +271,14 @@ func GetRaftBind() string {
 
 func GetRaftAdvertise() string {
 	return store.raftAdvertise
+}
+
+// GetStats returns internal raft stats (term, commit index, applied index, snapshot info, etc.)
+func GetStats() map[string]string {
+	if !IsRaftEnabled() {
+		return nil
+	}
+	return getRaft().Stats()
 }
 
 func GetPeers() ([]string, error) {

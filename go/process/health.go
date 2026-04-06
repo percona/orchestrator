@@ -83,6 +83,12 @@ type HealthStatus struct {
 	RaftLeaderURI      string
 	RaftAdvertise      string
 	RaftHealthyMembers []string
+	RaftState          string
+	RaftHealthy        bool
+	RaftIsPartOfQuorum bool
+	RaftBind           string
+	RaftPeers          []string
+	RaftStats          map[string]string
 }
 
 type OrchestratorExecutionMode string
@@ -129,6 +135,12 @@ func HealthTest() (health *HealthStatus, err error) {
 		health.IsRaftLeader = orcraft.IsLeader()
 		health.RaftAdvertise = config.Config.RaftAdvertise
 		health.RaftHealthyMembers = orcraft.HealthyMembers()
+		health.RaftState = orcraft.GetState().String()
+		health.RaftHealthy = orcraft.IsHealthy()
+		health.RaftIsPartOfQuorum = orcraft.IsPartOfQuorum()
+		health.RaftBind = orcraft.GetRaftBind()
+		health.RaftPeers, _ = orcraft.GetPeers()
+		health.RaftStats = orcraft.GetStats()
 	} else {
 		if health.ActiveNode, health.IsActiveNode, err = ElectedNode(); err != nil {
 			health.Error = err
