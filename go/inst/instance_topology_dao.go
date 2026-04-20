@@ -841,22 +841,23 @@ func ChangeMasterCredentials(instanceKey *InstanceKey, creds *ReplicationCredent
 		query_params_args = append(query_params_args, creds.Password)
 	}
 
-	// SSL CA cert
+	// Prefer SSL material supplied via creds over what we read from the replica,
+	// then let appendReplicationChangeTLSFragments emit the full TLS profile
+	// (CA path, cipher, verify-server-cert, TLS version, etc.) so this CHANGE
+	// REPLICATION SOURCE does not drop TLS metadata the replica already had.
 	if creds.SSLCaCert != "" {
-		query_params = append(query_params, instance.QSP.master_ssl_ca_param())
-		query_params_args = append(query_params_args, creds.SSLCaCert)
+		instance.ReplicationSSLCAFile = creds.SSLCaCert
+		instance.AllowTLS = true
 	}
-	// SSL cert
 	if creds.SSLCert != "" {
-		query_params = append(query_params, instance.QSP.master_ssl_cert_param())
-		query_params_args = append(query_params_args, creds.SSLCert)
+		instance.ReplicationSSLCert = creds.SSLCert
+		instance.AllowTLS = true
 	}
-	// SSL key
 	if creds.SSLKey != "" {
-		query_params = append(query_params, instance.QSP.master_ssl()+" = 1")
-		query_params = append(query_params, instance.QSP.master_ssl_key_param())
-		query_params_args = append(query_params_args, creds.SSLKey)
+		instance.ReplicationSSLKey = creds.SSLKey
+		instance.AllowTLS = true
 	}
+	appendReplicationChangeTLSFragments(instance, &query_params, &query_params_args)
 
 	query := fmt.Sprintf(instance.QSP.change_master_to_with_params(), strings.Join(query_params, ", "))
 	_, err = ExecInstance(instanceKey, query, query_params_args...)
@@ -897,31 +898,78 @@ func EnableMasterGetSourcePublicKey(instanceKey *InstanceKey) (*Instance, error)
 	return instance, err
 }
 
-// EnableMasterSSL issues CHANGE MASTER TO MASTER_SSL=1
-func EnableMasterSSL(instanceKey *InstanceKey) (*Instance, error) {
-	instance, err := ReadTopologyInstance(instanceKey)
-	if err != nil {
-		return instance, log.Errore(err)
+func appendReplicationChangeTLSFragments(instance *Instance, queryParams *[]string, queryArgs *[]interface{}) {
+	q := instance.QSP
+	if instance.AllowTLS {
+		*queryParams = append(*queryParams, q.master_ssl()+" = 1")
+		if instance.ReplicationSSLCAFile != "" {
+			*queryParams = append(*queryParams, q.master_ssl_ca_param())
+			*queryArgs = append(*queryArgs, instance.ReplicationSSLCAFile)
+		}
+		if instance.ReplicationSSLCAPath != "" {
+			*queryParams = append(*queryParams, q.master_ssl_capath_param())
+			*queryArgs = append(*queryArgs, instance.ReplicationSSLCAPath)
+		}
+		if instance.ReplicationSSLCert != "" {
+			*queryParams = append(*queryParams, q.master_ssl_cert_param())
+			*queryArgs = append(*queryArgs, instance.ReplicationSSLCert)
+		}
+		if instance.ReplicationSSLCipher != "" {
+			*queryParams = append(*queryParams, q.master_ssl_cipher_param())
+			*queryArgs = append(*queryArgs, instance.ReplicationSSLCipher)
+		}
+		if instance.ReplicationSSLCRLFile != "" {
+			*queryParams = append(*queryParams, q.master_ssl_crl_param())
+			*queryArgs = append(*queryArgs, instance.ReplicationSSLCRLFile)
+		}
+		if instance.ReplicationSSLCRLPath != "" {
+			*queryParams = append(*queryParams, q.master_ssl_crlpath_param())
+			*queryArgs = append(*queryArgs, instance.ReplicationSSLCRLPath)
+		}
+		if instance.ReplicationSSLKey != "" {
+			*queryParams = append(*queryParams, q.master_ssl_key_param())
+			*queryArgs = append(*queryArgs, instance.ReplicationSSLKey)
+		}
+		if instance.ReplicationSSLVerifyServerCert.Valid {
+			v := 0
+			if instance.ReplicationSSLVerifyServerCert.Bool {
+				v = 1
+			}
+			*queryParams = append(*queryParams, q.master_ssl_verify_server_cert_param())
+			*queryArgs = append(*queryArgs, v)
+		}
+		if instance.ReplicationTLSVersion != "" {
+			*queryParams = append(*queryParams, q.master_tls_version_param())
+			*queryArgs = append(*queryArgs, instance.ReplicationTLSVersion)
+		}
+		if instance.ReplicationTLSCiphersuites != "" {
+			*queryParams = append(*queryParams, q.master_tls_ciphersuites_param())
+			*queryArgs = append(*queryArgs, instance.ReplicationTLSCiphersuites)
+		}
 	}
-
-	if instance.ReplicationThreadsExist() && !instance.ReplicationThreadsStopped() {
-		return instance, fmt.Errorf("EnableMasterSSL: Cannot enable SSL replication on %+v because replication threads are not stopped", *instanceKey)
+	// RSA public-key auth settings (SOURCE_PUBLIC_KEY_PATH / GET_SOURCE_PUBLIC_KEY)
+	// are independent of TLS and must be preserved on every repoint, otherwise
+	// replicas using caching_sha2_password without TLS stop authenticating after
+	// a failover/switchover.
+	if instance.ReplicationSourcePublicKeyPath != "" {
+		*queryParams = append(*queryParams, q.master_public_key_path_param())
+		*queryArgs = append(*queryArgs, instance.ReplicationSourcePublicKeyPath)
 	}
-	log.Debugf("EnableMasterSSL: Will attempt enabling SSL replication on %+v", *instanceKey)
-
-	if *config.RuntimeCLIFlags.Noop {
-		return instance, fmt.Errorf("noop: aborting CHANGE MASTER TO MASTER_SSL=1 operation on %+v; signaling error but nothing went wrong.", *instanceKey)
+	if instance.ReplicationGetSourcePublicKey.Valid {
+		v := 0
+		if instance.ReplicationGetSourcePublicKey.Bool {
+			v = 1
+		}
+		*queryParams = append(*queryParams, q.master_get_source_public_key_param())
+		*queryArgs = append(*queryArgs, v)
 	}
-	_, err = ExecInstance(instanceKey, instance.QSP.change_master_to_master_ssl())
+}
 
-	if err != nil {
-		return instance, log.Errore(err)
-	}
-
-	log.Infof("EnableMasterSSL: Enabled SSL replication on %+v", *instanceKey)
-
-	instance, err = ReadTopologyInstance(instanceKey)
-	return instance, err
+func changeReplicationSourceWithTLS(instanceKey *InstanceKey, instance *Instance, params []string, args []interface{}) error {
+	appendReplicationChangeTLSFragments(instance, &params, &args)
+	query := fmt.Sprintf(instance.QSP.change_master_to_with_params(), strings.Join(params, ", "))
+	_, err := ExecInstance(instanceKey, query, args...)
+	return err
 }
 
 // See https://bugs.mysql.com/bug.php?id=83713
@@ -976,17 +1024,28 @@ func ChangeMasterTo(instanceKey *InstanceKey, masterKey *InstanceKey, masterBinl
 	if instance.UsingMariaDBGTID && gtidHint != GTIDHintDeny {
 		// Keep on using GTID
 		changeMasterFunc = func() error {
-			_, err := ExecInstance(instanceKey, instance.QSP.change_master_to_master_host_port(),
-				changeToMasterKey.Hostname, changeToMasterKey.Port)
-			return err
+			params := []string{instance.QSP.master_host_assign(), instance.QSP.master_port_assign()}
+			args := []interface{}{changeToMasterKey.Hostname, changeToMasterKey.Port}
+			return changeReplicationSourceWithTLS(instanceKey, instance, params, args)
 		}
 		changedViaGTID = true
 	} else if instance.UsingMariaDBGTID && gtidHint == GTIDHintDeny {
 		// Make sure to not use GTID
 		changeMasterFunc = func() error {
-			_, err = ExecInstance(instanceKey, instance.QSP.change_master_to_master_host_port_log_gtid_no(),
-				changeToMasterKey.Hostname, changeToMasterKey.Port, masterBinlogCoordinates.LogFile, masterBinlogCoordinates.LogPos)
-			return err
+			params := []string{
+				instance.QSP.master_host_assign(),
+				instance.QSP.master_port_assign(),
+				instance.QSP.master_log_file_assign(),
+				instance.QSP.master_log_pos_assign(),
+				"master_use_gtid=no",
+			}
+			args := []interface{}{
+				changeToMasterKey.Hostname,
+				changeToMasterKey.Port,
+				masterBinlogCoordinates.LogFile,
+				masterBinlogCoordinates.LogPos,
+			}
+			return changeReplicationSourceWithTLS(instanceKey, instance, params, args)
 		}
 	} else if instance.IsMariaDB() && gtidHint == GTIDHintForce {
 		// Is MariaDB; not using GTID, turn into GTID
@@ -1001,40 +1060,70 @@ func ChangeMasterTo(instanceKey *InstanceKey, masterKey *InstanceKey, masterBinl
 			mariadbGTIDHint = "current_pos"
 		}
 		changeMasterFunc = func() error {
-			_, err = ExecInstance(instanceKey, fmt.Sprintf("change master to master_host=?, master_port=?, master_use_gtid=%s", mariadbGTIDHint),
-				changeToMasterKey.Hostname, changeToMasterKey.Port)
-			return err
+			params := []string{
+				instance.QSP.master_host_assign(),
+				instance.QSP.master_port_assign(),
+				fmt.Sprintf("master_use_gtid=%s", mariadbGTIDHint),
+			}
+			args := []interface{}{changeToMasterKey.Hostname, changeToMasterKey.Port}
+			return changeReplicationSourceWithTLS(instanceKey, instance, params, args)
 		}
 		changedViaGTID = true
 	} else if instance.UsingOracleGTID && gtidHint != GTIDHintDeny {
 		// Is Oracle; already uses GTID; keep using it.
 		changeMasterFunc = func() error {
-			_, err = ExecInstance(instanceKey, instance.QSP.change_master_to_master_host_port(),
-				changeToMasterKey.Hostname, changeToMasterKey.Port)
-			return err
+			params := []string{instance.QSP.master_host_assign(), instance.QSP.master_port_assign()}
+			args := []interface{}{changeToMasterKey.Hostname, changeToMasterKey.Port}
+			return changeReplicationSourceWithTLS(instanceKey, instance, params, args)
 		}
 		changedViaGTID = true
 	} else if instance.UsingOracleGTID && gtidHint == GTIDHintDeny {
 		// Is Oracle; already uses GTID
 		changeMasterFunc = func() error {
-			_, err = ExecInstance(instanceKey, instance.QSP.change_master_to_master_host_port_log_autoposition_no(),
-				changeToMasterKey.Hostname, changeToMasterKey.Port, masterBinlogCoordinates.LogFile, masterBinlogCoordinates.LogPos)
-			return err
+			params := []string{
+				instance.QSP.master_host_assign(),
+				instance.QSP.master_port_assign(),
+				instance.QSP.master_log_file_assign(),
+				instance.QSP.master_log_pos_assign(),
+				instance.QSP.master_auto_position_assign(),
+			}
+			args := []interface{}{
+				changeToMasterKey.Hostname,
+				changeToMasterKey.Port,
+				masterBinlogCoordinates.LogFile,
+				masterBinlogCoordinates.LogPos,
+				0,
+			}
+			return changeReplicationSourceWithTLS(instanceKey, instance, params, args)
 		}
 	} else if instance.SupportsOracleGTID && gtidHint == GTIDHintForce {
 		// Is Oracle; not using GTID right now; turn into GTID
 		changeMasterFunc = func() error {
-			_, err = ExecInstance(instanceKey, instance.QSP.change_master_to_master_host_port_autoposition_yes(),
-				changeToMasterKey.Hostname, changeToMasterKey.Port)
-			return err
+			params := []string{
+				instance.QSP.master_host_assign(),
+				instance.QSP.master_port_assign(),
+				instance.QSP.master_auto_position_assign(),
+			}
+			args := []interface{}{changeToMasterKey.Hostname, changeToMasterKey.Port, 1}
+			return changeReplicationSourceWithTLS(instanceKey, instance, params, args)
 		}
 		changedViaGTID = true
 	} else {
 		// Normal binlog file:pos
 		changeMasterFunc = func() error {
-			_, err = ExecInstance(instanceKey, instance.QSP.change_master_to_master_host_port_log(),
-				changeToMasterKey.Hostname, changeToMasterKey.Port, masterBinlogCoordinates.LogFile, masterBinlogCoordinates.LogPos)
-			return err
+			params := []string{
+				instance.QSP.master_host_assign(),
+				instance.QSP.master_port_assign(),
+				instance.QSP.master_log_file_assign(),
+				instance.QSP.master_log_pos_assign(),
+			}
+			args := []interface{}{
+				changeToMasterKey.Hostname,
+				changeToMasterKey.Port,
+				masterBinlogCoordinates.LogFile,
+				masterBinlogCoordinates.LogPos,
+			}
+			return changeReplicationSourceWithTLS(instanceKey, instance, params, args)
 		}
 	}
 	err = changeMasterFunc()

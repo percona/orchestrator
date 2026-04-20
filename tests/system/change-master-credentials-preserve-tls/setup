@@ -1,0 +1,91 @@
+#!/bin/bash
+#
+# Provision a CA-signed server cert on every sandbox mysqld (same 127.0.0.1
+# host, different ports) and bring replica 10114 up with a rich TLS profile
+# (SOURCE_SSL=1, SOURCE_SSL_CA, SOURCE_SSL_VERIFY_SERVER_CERT, SOURCE_TLS_VERSION).
+#
+# A real TLS replication connection is required because orchestrator only
+# re-emits TLS fragments on CHANGE REPLICATION SOURCE TO when it sees
+# Source_SSL_Allowed='Yes' in SHOW REPLICA STATUS (i.e. AllowTLS=true).
+# A SOURCE_SSL=0 shortcut would silently bypass the fix and mask regressions.
+#
+# The run script then enables the general query log and asserts the exact
+# SQL orchestrator emits, because MySQL 8.4's CHANGE REPLICATION SOURCE TO
+# preserves unspecified options at the server level and a SHOW REPLICA STATUS
+# before/after comparison cannot tell the fixed path from the buggy one.
+#
+set -euo pipefail
+
+TLS_DIR=/tmp/orch_ci_chgcreds_tls_$$
+export TLS_DIR
+mkdir -p "$TLS_DIR"
+chmod 711 "$TLS_DIR"
+
+openssl genrsa -out "$TLS_DIR/ca-key.pem" 2048 >/dev/null 2>&1
+openssl req -x509 -new -nodes -key "$TLS_DIR/ca-key.pem" -sha256 -days 1 \
+  -out "$TLS_DIR/ca.pem" -subj "/CN=orch-ci-chgcreds-tls-ca" >/dev/null 2>&1
+
+openssl genrsa -out "$TLS_DIR/server-key.pem" 2048 >/dev/null 2>&1
+openssl req -new -key "$TLS_DIR/server-key.pem" -out "$TLS_DIR/server.csr" \
+  -subj "/CN=127.0.0.1" >/dev/null 2>&1
+
+cat > "$TLS_DIR/server_ext.cnf" <<'EOF'
+subjectAltName=IP:127.0.0.1,DNS:localhost
+extendedKeyUsage=serverAuth
+keyUsage=digitalSignature,keyEncipherment
+EOF
+
+openssl x509 -req -in "$TLS_DIR/server.csr" \
+  -CA "$TLS_DIR/ca.pem" -CAkey "$TLS_DIR/ca-key.pem" -CAcreateserial \
+  -out "$TLS_DIR/server.pem" -days 1 -sha256 \
+  -extfile "$TLS_DIR/server_ext.cnf" >/dev/null 2>&1
+
+chmod a+rX "$TLS_DIR"/*.pem
+
+MYSQL=(mysql -uci -pci -h127.0.0.1)
+
+# Any instance may serve as replication source after repoints; configure TLS everywhere.
+for port in 10111 10112 10113 10114; do
+  "${MYSQL[@]}" --port="$port" -e "
+    SET PERSIST ssl_ca='${TLS_DIR}/ca.pem';
+    SET PERSIST ssl_cert='${TLS_DIR}/server.pem';
+    SET PERSIST ssl_key='${TLS_DIR}/server-key.pem';
+  "
+  "${MYSQL[@]}" --port="$port" -e "ALTER INSTANCE RELOAD TLS;"
+done
+
+"${MYSQL[@]}" --port=10114 -e "STOP REPLICA IO_THREAD; STOP REPLICA SQL_THREAD;"
+"${MYSQL[@]}" --port=10114 -e "
+  CHANGE REPLICATION SOURCE TO
+    SOURCE_SSL=1,
+    SOURCE_SSL_CA='${TLS_DIR}/ca.pem',
+    SOURCE_SSL_VERIFY_SERVER_CERT=1,
+    SOURCE_TLS_VERSION='TLSv1.2,TLSv1.3';
+"
+"${MYSQL[@]}" --port=10114 -e "START REPLICA;"
+
+io_running=""
+for _ in $(seq 1 60); do
+  io_running=$("${MYSQL[@]}" --port=10114 -e "SHOW REPLICA STATUS\G" | tr -d '\r' | grep -E '^\s*Replica_IO_Running:' | awk '{print $2}' | head -1)
+  if [ "$io_running" = "Yes" ]; then
+    break
+  fi
+  sleep 1
+done
+
+if [ "$io_running" != "Yes" ]; then
+  echo "ERROR: replica 10114 IO thread not running after enabling TLS (got Replica_IO_Running=${io_running})"
+  "${MYSQL[@]}" --port=10114 -e "SHOW REPLICA STATUS\G" | head -60
+  exit 1
+fi
+
+# Enable the general log (as a table) so the run script can inspect the exact
+# CHANGE REPLICATION SOURCE TO statement orchestrator emits.
+"${MYSQL[@]}" --port=10114 -e "
+  SET GLOBAL log_output='TABLE';
+  SET GLOBAL general_log='OFF';
+  TRUNCATE TABLE mysql.general_log;
+  SET GLOBAL general_log='ON';
+"
+
+orchestrator-client -c discover -i 127.0.0.1:10114 | grep -q .

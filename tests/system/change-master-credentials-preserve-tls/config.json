@@ -1,0 +1,3 @@
+{
+  "ReplicationCredentialsQuery": "SELECT 'ci' AS user, 'ci' AS password, '' AS sslCaCert, '' AS sslCert, '' AS sslKey"
+}

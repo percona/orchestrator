@@ -2213,12 +2213,7 @@ func GracefulMasterTakeover(clusterName string, designatedKey *inst.InstanceKey,
 			err = credentialsErr
 		}
 	}
-	if designatedInstance.AllowTLS {
-		_, enableSSLErr := inst.EnableMasterSSL(&clusterMaster.Key)
-		if err == nil {
-			err = enableSSLErr
-		}
-	} else {
+	if !designatedInstance.AllowTLS {
 		_, enableSSLErr := inst.EnableMasterGetSourcePublicKey(&clusterMaster.Key)
 		if err == nil {
 			err = enableSSLErr

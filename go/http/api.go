@@ -674,6 +674,33 @@ func (this *HttpAPI) ResetReplication(params martini.Params, r render.Render, re
 	Respond(r, &APIResponse{Code: OK, Message: fmt.Sprintf("Replica reset on %+v", instance.Key), Details: instance})
 }
 
+// ChangeMasterCredentials re-applies replication user/password (and SSL material supplied via
+// ReplicationCredentialsQuery) on an instance while preserving its existing SOURCE_SSL/TLS
+// configuration. Useful for credential rotation and for exercising the TLS-preservation path.
+func (this *HttpAPI) ChangeMasterCredentials(params martini.Params, r render.Render, req *http.Request, user auth.User) {
+	if !isAuthorizedForAction(req, user) {
+		Respond(r, &APIResponse{Code: ERROR, Message: "Unauthorized"})
+		return
+	}
+	instanceKey, err := this.getInstanceKey(params["host"], params["port"])
+	if err != nil {
+		Respond(r, &APIResponse{Code: ERROR, Message: err.Error()})
+		return
+	}
+	creds, err := inst.ReadReplicationCredentials(&instanceKey)
+	if err != nil {
+		Respond(r, &APIResponse{Code: ERROR, Message: err.Error()})
+		return
+	}
+	instance, err := inst.ChangeMasterCredentials(&instanceKey, creds)
+	if err != nil {
+		Respond(r, &APIResponse{Code: ERROR, Message: err.Error()})
+		return
+	}
+
+	Respond(r, &APIResponse{Code: OK, Message: fmt.Sprintf("Replication credentials re-applied on %+v", instance.Key), Details: instance})
+}
+
 // DetachReplicaMasterHost detaches a replica from its master by setting an invalid
 // (yet revertible) host name
 func (this *HttpAPI) DetachReplicaMasterHost(params martini.Params, r render.Render, req *http.Request, user auth.User) {
@@ -3829,6 +3856,7 @@ func (this *HttpAPI) RegisterRequests(m *martini.ClassicMartini) {
 	this.registerAPIRequest(m, "stop-slave/:host/:port", this.StopReplication)
 	this.registerAPIRequest(m, "stop-slave-nice/:host/:port", this.StopReplicationNicely)
 	this.registerAPIRequest(m, "reset-slave/:host/:port", this.ResetReplication)
+	this.registerAPIRequest(m, "change-master-credentials/:host/:port", this.ChangeMasterCredentials)
 	this.registerAPIRequest(m, "detach-slave/:host/:port", this.DetachReplicaMasterHost)
 	this.registerAPIRequest(m, "reattach-slave/:host/:port", this.ReattachReplicaMasterHost)
 	this.registerAPIRequest(m, "detach-slave-master-host/:host/:port", this.DetachReplicaMasterHost)

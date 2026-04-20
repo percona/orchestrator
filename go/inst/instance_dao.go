@@ -222,6 +222,47 @@ func logReadTopologyInstanceError(instanceKey *InstanceKey, hint string, err err
 	return log.Errorf(msg)
 }
 
+// readReplicationTLSStatusFromShowReplicaRow copies TLS-related columns from SHOW SLAVE/REPLICA STATUS
+// so ChangeMasterTo can replay them on CHANGE REPLICATION SOURCE / CHANGE MASTER.
+func readReplicationTLSStatusFromShowReplicaRow(instance *Instance, m sqlutils.RowMap) {
+	q := instance.QSP
+	instance.ReplicationSSLCAFile = m.GetStringD(q.replica_status_ssl_ca_file(), "")
+	instance.ReplicationSSLCAPath = m.GetStringD(q.replica_status_ssl_ca_path(), "")
+	instance.ReplicationSSLCert = m.GetStringD(q.replica_status_ssl_cert(), "")
+	instance.ReplicationSSLCipher = m.GetStringD(q.replica_status_ssl_cipher(), "")
+	instance.ReplicationSSLCRLFile = m.GetStringD(q.replica_status_ssl_crl_file(), "")
+	instance.ReplicationSSLCRLPath = m.GetStringD(q.replica_status_ssl_crl_path(), "")
+	instance.ReplicationSSLKey = m.GetStringD(q.replica_status_ssl_key(), "")
+	instance.ReplicationTLSVersion = m.GetStringD(q.replica_status_tls_version(), "")
+	instance.ReplicationTLSCiphersuites = m.GetStringD(q.replica_status_tls_ciphersuites(), "")
+	instance.ReplicationSourcePublicKeyPath = m.GetStringD(q.replica_status_public_key_path(), "")
+
+	if v := m.GetStringD(q.replica_status_ssl_verify_server_cert(), ""); v != "" {
+		instance.ReplicationSSLVerifyServerCert = sql.NullBool{
+			Valid: true,
+			Bool:  strings.EqualFold(v, "Yes") || v == "1",
+		}
+	} else {
+		instance.ReplicationSSLVerifyServerCert = sql.NullBool{Valid: false, Bool: false}
+	}
+
+	gpk := m.GetStringD(q.replica_status_get_source_public_key(), "")
+	if gpk == "" {
+		gpk = m.GetStringD("Get_source_public_key", "")
+	}
+	if gpk == "" {
+		gpk = m.GetStringD("Get_master_public_key", "")
+	}
+	if gpk != "" {
+		instance.ReplicationGetSourcePublicKey = sql.NullBool{
+			Valid: true,
+			Bool:  strings.EqualFold(gpk, "Yes") || gpk == "1",
+		}
+	} else {
+		instance.ReplicationGetSourcePublicKey = sql.NullBool{Valid: false, Bool: false}
+	}
+}
+
 // ReadTopologyInstance collects information on the state of a MySQL
 // server and writes the result synchronously to the orchestrator
 // backend.
@@ -520,6 +561,7 @@ func ReadTopologyInstanceBufferable(instanceKey *InstanceKey, bufferWrites bool,
 		instance.ReplicationLagSeconds = instance.SecondsBehindMaster
 
 		instance.AllowTLS = (m.GetString(instance.QSP.master_ssl_allowed()) == "Yes")
+		readReplicationTLSStatusFromShowReplicaRow(instance, m)
 		// Not breaking the flow even on error
 		slaveStatusFound = true
 		return nil

@@ -987,6 +987,7 @@ function run_command {
     "start-replica") general_instance_command ;;                # Issue a START SLAVE on an instance
     "restart-replica") general_instance_command ;;              # Issue STOP and START SLAVE on an instance
     "reset-replica") general_instance_command ;;                # Issues a RESET SLAVE command; use with care
+    "change-master-credentials") general_instance_command ;;    # Re-apply replication user/password (and SSL material from ReplicationCredentialsQuery) while preserving TLS configuration
     "detach-replica") general_instance_command ;;               # Stops replication and modifies Master_Host into an impossible yet reversible value.
     "reattach-replica") general_instance_command ;;             # Undo a detach-replica operation
     "detach-replica-master-host") general_instance_command ;;   # Stops replication and modifies Master_Host into an impossible yet reversible value.

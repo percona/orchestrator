@@ -1,0 +1,56 @@
+#!/bin/bash
+#
+# After `relocate`, the CHANGE REPLICATION SOURCE TO statement orchestrator
+# emits on replica 10114 must explicitly include the TLS fragments the replica
+# advertises in SHOW REPLICA STATUS. We assert that by inspecting
+# mysql.general_log on 10114, because comparing SHOW REPLICA STATUS before
+# and after would falsely pass on MySQL 8.4 (which preserves unspecified
+# CHANGE REPLICATION SOURCE TO options at the server level and thus masks the
+# orchestrator-side bug).
+#
+set -euo pipefail
+
+MYSQL=(mysql -uci -pci -h127.0.0.1)
+
+"${MYSQL[@]}" --port=10114 -e "TRUNCATE TABLE mysql.general_log;"
+
+# relocate prints topology hints; suppress so expect_output stays deterministic
+orchestrator-client -c relocate -i 127.0.0.1:10114 -d 127.0.0.1:10112 >/dev/null
+
+sleep 2
+orchestrator-client -c discover -i 127.0.0.1:10114 | grep -q .
+
+change_stmt=$("${MYSQL[@]}" --port=10114 -sN -e "
+  SELECT argument FROM mysql.general_log
+   WHERE LOWER(CONVERT(argument USING utf8mb4))
+         REGEXP 'change (master|replication source) to'
+   ORDER BY event_time ASC
+   LIMIT 1;
+")
+
+"${MYSQL[@]}" --port=10114 -e "SET GLOBAL general_log='OFF';"
+
+if [ -z "$change_stmt" ]; then
+  echo "ERROR: no CHANGE REPLICATION SOURCE TO statement captured in mysql.general_log"
+  "${MYSQL[@]}" --port=10114 -e "SELECT event_time, argument FROM mysql.general_log ORDER BY event_time LIMIT 50\G" || true
+  exit 1
+fi
+
+fail=0
+for fragment in \
+  "source_ssl_ca" \
+  "source_ssl_verify_server_cert" \
+  ; do
+  if ! echo "$change_stmt" | grep -qi "$fragment"; then
+    echo "MISSING fragment: $fragment"
+    fail=1
+  fi
+done
+
+if [ "$fail" -ne 0 ]; then
+  echo "--- captured CHANGE statement ---"
+  echo "$change_stmt"
+  exit 1
+fi
+
+echo OK_RELOCATE_EMITS_TLS_FRAGMENTS

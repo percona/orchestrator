@@ -1031,13 +1031,7 @@ func MakeCoMaster(instanceKey *InstanceKey) (*Instance, error) {
 		}
 	}
 
-	if instance.AllowTLS {
-		log.Debugf("Enabling SSL replication")
-		_, err = EnableMasterSSL(&master.Key)
-		if err != nil {
-			goto Cleanup
-		}
-	} else {
+	if !instance.AllowTLS {
 		_, err = EnableMasterGetSourcePublicKey(&master.Key)
 		if err != nil {
 			goto Cleanup
