@@ -24,6 +24,7 @@ change_stmt=$("${MYSQL[@]}" --port=10114 -sN -e "
   SELECT argument FROM mysql.general_log
    WHERE LOWER(CONVERT(argument USING utf8mb4))
          REGEXP 'change (master|replication source) to'
+     AND LOWER(CONVERT(argument USING utf8mb4)) LIKE '%source_user%'
    ORDER BY event_time ASC
    LIMIT 1;
 ")
@@ -41,6 +42,8 @@ for fragment in \
   "source_ssl_ca" \
   "source_ssl_verify_server_cert" \
   "source_tls_version" \
+  "source_public_key_path" \
+  "get_source_public_key" \
   ; do
   if ! echo "$change_stmt" | grep -qi "$fragment"; then
     echo "MISSING fragment: $fragment"

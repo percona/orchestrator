@@ -219,7 +219,7 @@ func logReadTopologyInstanceError(instanceKey *InstanceKey, hint string, err err
 			strings.Replace(hint, "%", "%%", -1), // escape %
 			err)
 	}
-	return log.Errorf(msg)
+	return log.Errorf("%s", msg)
 }
 
 // readReplicationTLSStatusFromShowReplicaRow copies TLS-related columns from SHOW SLAVE/REPLICA STATUS
@@ -247,17 +247,16 @@ func readReplicationTLSStatusFromShowReplicaRow(instance *Instance, m sqlutils.R
 	}
 
 	gpk := m.GetStringD(q.replica_status_get_source_public_key(), "")
-	if gpk == "" {
-		gpk = m.GetStringD("Get_source_public_key", "")
-	}
-	if gpk == "" {
-		gpk = m.GetStringD("Get_master_public_key", "")
-	}
 	if gpk != "" {
 		instance.ReplicationGetSourcePublicKey = sql.NullBool{
 			Valid: true,
 			Bool:  strings.EqualFold(gpk, "Yes") || gpk == "1",
 		}
+	} else if instance.ReplicationSourcePublicKeyPath != "" {
+		// When SOURCE_PUBLIC_KEY_PATH is set, some builds omit Get_source_public_key
+		// from SHOW (GET_SOURCE_PUBLIC_KEY is effectively off). Still replay
+		// get_source_public_key=0 on CHANGE so options are not dropped.
+		instance.ReplicationGetSourcePublicKey = sql.NullBool{Valid: true, Bool: false}
 	} else {
 		instance.ReplicationGetSourcePublicKey = sql.NullBool{Valid: false, Bool: false}
 	}

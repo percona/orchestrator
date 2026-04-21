@@ -71,7 +71,7 @@ func (logger SqlUtilsLogger) OnError(caller_context string, query string, err er
 		query,
 		err)
 
-	return log.Errorf(msg)
+	return log.Errorf("%s", msg)
 }
 
 // This validator is for dev purposes only. Call of this validator is

@@ -2,7 +2,9 @@
 #
 # Provision a CA-signed server cert on every sandbox mysqld (same 127.0.0.1
 # host, different ports) and bring replica 10114 up with a rich TLS profile
-# (SOURCE_SSL=1, SOURCE_SSL_CA, SOURCE_SSL_VERIFY_SERVER_CERT, SOURCE_TLS_VERSION).
+# (SOURCE_SSL=1, SOURCE_SSL_CA, SOURCE_SSL_VERIFY_SERVER_CERT, SOURCE_TLS_VERSION)
+# plus SOURCE_PUBLIC_KEY_PATH (GET_SOURCE_PUBLIC_KEY is implied off when a path is set;
+# some servers omit Get_source_public_key from SHOW — discovery treats that as explicit No).
 #
 # A real TLS replication connection is required because orchestrator only
 # re-emits TLS fragments on CHANGE REPLICATION SOURCE TO when it sees
@@ -44,6 +46,14 @@ chmod a+rX "$TLS_DIR"/*.pem
 
 MYSQL=(mysql -uci -pci -h127.0.0.1)
 
+# PEM for SOURCE_PUBLIC_KEY_PATH: any valid RSA public key PEM is enough for
+# this regression test (we only assert orchestrator re-emits the option).
+# Do not use @@caching_sha2_password_rsa_public_key: it is absent on some 8.4
+# builds (e.g. Percona Server 8.4), which would fail setup with ER_UNKNOWN_SYSTEM_VARIABLE.
+openssl genrsa -out "$TLS_DIR/repl-rsa-priv.pem" 2048 >/dev/null 2>&1
+openssl rsa -in "$TLS_DIR/repl-rsa-priv.pem" -pubout -out "$TLS_DIR/repl_rsa_pub.pem" >/dev/null 2>&1
+chmod a+r "$TLS_DIR/repl_rsa_pub.pem"
+
 # Any instance may serve as replication source after repoints; configure TLS everywhere.
 for port in 10111 10112 10113 10114; do
   "${MYSQL[@]}" --port="$port" -e "
@@ -60,7 +70,8 @@ done
     SOURCE_SSL=1,
     SOURCE_SSL_CA='${TLS_DIR}/ca.pem',
     SOURCE_SSL_VERIFY_SERVER_CERT=1,
-    SOURCE_TLS_VERSION='TLSv1.2,TLSv1.3';
+    SOURCE_TLS_VERSION='TLSv1.2,TLSv1.3',
+    SOURCE_PUBLIC_KEY_PATH='${TLS_DIR}/repl_rsa_pub.pem';
 "
 "${MYSQL[@]}" --port=10114 -e "START REPLICA;"
 

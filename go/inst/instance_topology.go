@@ -269,7 +269,7 @@ Cleanup:
 
 	if err == nil {
 		message := fmt.Sprintf("moved %+v via equivalence coordinates below %+v", *instanceKey, *otherKey)
-		log.Debugf(message)
+		log.Debugf("%s", message)
 		AuditOperation("move-equivalent", instanceKey, message)
 	}
 	return instance, err
