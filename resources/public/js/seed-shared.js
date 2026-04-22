@@ -8,11 +8,11 @@ function appendSeedDetails(seed, selector) {
 		statusMessage = '<span class="text-info">Active</span>';
 	}
 	row += '<td>' + statusMessage + '</td>';
-	row += '<td><a href="' + appUrl('/web/seed-details/' + seed.SeedId) + '">' + seed.SeedId + '</a></td>';
-	row += '<td><a href="' + appUrl('/web/agent/'+seed.TargetHostname) + '">'+seed.TargetHostname+'</a></td>';
-	row += '<td><a href="' + appUrl('/web/agent/'+seed.SourceHostname) + '">'+seed.SourceHostname+'</a></td>';
-	row += '<td>' + seed.StartTimestamp + '</td>';
-	row += '<td>' + (seed.IsComplete ? seed.EndTimestamp : '<button class="btn btn-xs btn-danger" data-command="abort-seed" data-seed-source-host="'+seed.SourceHostname+'" data-seed-target-host="'+seed.TargetHostname+'" data-seed-id="' + seed.SeedId + '">Abort</button>') + '</td>';
+	row += '<td><a href="' + appUrl('/web/seed-details/' + encodeURIComponent(seed.SeedId)) + '">' + escapeHtml(seed.SeedId) + '</a></td>';
+	row += '<td><a href="' + appUrl('/web/agent/'+encodeURIComponent(seed.TargetHostname)) + '">'+escapeHtml(seed.TargetHostname)+'</a></td>';
+	row += '<td><a href="' + appUrl('/web/agent/'+encodeURIComponent(seed.SourceHostname)) + '">'+escapeHtml(seed.SourceHostname)+'</a></td>';
+	row += '<td>' + escapeHtml(seed.StartTimestamp) + '</td>';
+	row += '<td>' + (seed.IsComplete ? escapeHtml(seed.EndTimestamp) : '<button class="btn btn-xs btn-danger" data-command="abort-seed" data-seed-source-host="'+escapeHtml(seed.SourceHostname)+'" data-seed-target-host="'+escapeHtml(seed.TargetHostname)+'" data-seed-id="' + escapeHtml(seed.SeedId) + '">Abort</button>') + '</td>';
 	row += '</tr>';
 	$(selector).append(row);
     hideLoader();
@@ -24,9 +24,9 @@ function appendSeedState(seedState) {
 		return "Copied " + toHumanFormat(match1) + " / " + toHumanFormat(match2) + " " + match3;
 	});
 	var row = '<tr>';
-	row += '<td>' + seedState.StateTimestamp + '</td>';
-	row += '<td>' + action + '</td>';
-	row += '<td>' + seedState.ErrorMessage + '</td>';
+	row += '<td>' + escapeHtml(seedState.StateTimestamp) + '</td>';
+	row += '<td>' + escapeHtml(action) + '</td>';
+	row += '<td>' + escapeHtml(seedState.ErrorMessage) + '</td>';
 	row += '</tr>';
 	$("[data-agent=seed_states]").append(row);
     hideLoader();
@@ -37,22 +37,22 @@ $("body").on("click", "button[data-command=abort-seed]", function(event) {
 	var sourceHost = $(event.target).attr("data-seed-source-host");
 	var targetHost = $(event.target).attr("data-seed-target-host");
 
-	var message = "Are you sure you wish to abort seed " + seedId + " from <code><strong>" + 
-		sourceHost + "</strong></code> to <code><strong>" + 
-		targetHost + "</strong></code> ?";
+	var message = "Are you sure you wish to abort seed " + escapeHtml(seedId) + " from <code><strong>" + 
+		escapeHtml(sourceHost) + "</strong></code> to <code><strong>" + 
+		escapeHtml(targetHost) + "</strong></code> ?";
 	bootbox.confirm(message, function(confirm) {
 		if (confirm) {
 	    	showLoader();
-	        $.get(appUrl("/api/agent-abort-seed/"+seedId), function (operationResult) {
+	        $.get(appUrl("/api/agent-abort-seed/"+encodeURIComponent(seedId)), function (operationResult) {
 				hideLoader();
 				if (operationResult.Code == "ERROR") {
-					addAlert(operationResult.Message)
+					addAlert(escapeHtml(operationResult.Message))
 				} else {
 					location.reload();
 				}	
 	        }, "json").fail(function (operationResult) {
 				hideLoader();
-				addAlert(operationResult.responseJSON.Message)
+				addAlert(escapeHtml((operationResult.responseJSON && operationResult.responseJSON.Message) || "Request failed"))
 			  });
 		}
 	});

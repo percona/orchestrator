@@ -33,29 +33,29 @@ $(document).ready(function() {
       $('<td/>').prepend(analysisElement).appendTo(row);
       $('<a/>', {
         text: analyzedInstanceDisplay,
-        href: appUrl("/web/search/" + analyzedInstanceDisplay)
+        href: appUrl("/web/search/" + encodeURIComponent(analyzedInstanceDisplay))
       }).wrap($("<td/>")).parent().appendTo(row);
       $('<td/>', {
         text: audit.AnalysisEntry.CountReplicas
       }).appendTo(row);
       $('<a/>', {
         text: audit.AnalysisEntry.ClusterDetails.ClusterName,
-        href: appUrl("/web/cluster/" + audit.AnalysisEntry.ClusterDetails.ClusterName)
+        href: appUrl("/web/cluster/" + encodeURIComponent(audit.AnalysisEntry.ClusterDetails.ClusterName))
       }).wrap($("<td/>")).parent().appendTo(row);
       $('<a/>', {
         text: audit.AnalysisEntry.ClusterDetails.ClusterAlias,
-        href: appUrl("/web/cluster/alias/" + audit.AnalysisEntry.ClusterDetails.ClusterAlias)
+        href: appUrl("/web/cluster/alias/" + encodeURIComponent(audit.AnalysisEntry.ClusterDetails.ClusterAlias))
       }).wrap($("<td/>")).parent().appendTo(row);
       $('<td/>', {
         text: audit.RecoveryStartTimestamp
       }).appendTo(row);
 
       var moreInfo = "";
-      moreInfo += '<div>Detected: ' + audit.RecoveryStartTimestamp + '</div>';
+      moreInfo += '<div>Detected: ' + escapeHtml(audit.RecoveryStartTimestamp) + '</div>';
       if (audit.AnalysisEntry.Replicas.length > 0) {
         moreInfo += '<div>' + audit.AnalysisEntry.CountReplicas + ' replicating hosts :<ul>';
         audit.AnalysisEntry.Replicas.forEach(function(instanceKey) {
-          moreInfo += "<li><code>" + getInstanceTitle(instanceKey.Hostname, instanceKey.Port) + "</code></li>";
+          moreInfo += "<li><code>" + escapeHtml(getInstanceTitle(instanceKey.Hostname, instanceKey.Port)) + "</code></li>";
         });
         moreInfo += "</ul></div>";
       }
@@ -71,13 +71,13 @@ $(document).ready(function() {
             // This entry is newer than the detection time; irrelevant
             return;
           }
-          moreInfo += "<li><code>" + changelogEntryTimestamp + " <strong>" + changelogEntryAnalysis + "</strong></code></li>";
+          moreInfo += "<li><code>" + escapeHtml(changelogEntryTimestamp) + " <strong>" + escapeHtml(changelogEntryAnalysis) + "</strong></code></li>";
         });
         moreInfo += "</ul></div>";
       }
-      moreInfo += '<div><a href="' + appUrl('/web/audit-recovery/id/' + audit.RelatedRecoveryId) + '">Related recovery</a></div>';
+      moreInfo += '<div><a href="' + appUrl('/web/audit-recovery/id/' + encodeURIComponent(audit.RelatedRecoveryId)) + '">Related recovery</a></div>';
 
-      moreInfo += "<div>Processed by <code>" + audit.ProcessingNodeHostname + "</code></div>";
+      moreInfo += "<div>Processed by <code>" + escapeHtml(audit.ProcessingNodeHostname) + "</code></div>";
       row.appendTo('#audit tbody');
 
       var row = $('<tr/>');

@@ -22,7 +22,7 @@ $(document).ready(function () {
 		});
 
     if (instances.length == 0) {
-    	addAlert("No search results found for "+currentSearchString());
+    	addAlert("No search results found for "+escapeHtml(currentSearchString()));
     }
 	}
 });

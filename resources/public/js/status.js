@@ -1,3 +1,27 @@
+// Only allow http(s) links for Raft leader URI (href is not secured by HTML-escaping alone).
+function safeHttpOrHttpsHref(uri) {
+	if (uri == null || uri === '') {
+		return '';
+	}
+	var s = (typeof uri === 'string' ? uri : '').trim();
+	if (s.indexOf('http://') !== 0 && s.indexOf('https://') !== 0) {
+		return '';
+	}
+	try {
+		return new URL(s).href;
+	} catch (err) {
+		return '';
+	}
+}
+
+function raftLeaderUriCellHtml(uri) {
+	var display = escapeHtml(uri);
+	var safeHref = safeHttpOrHttpsHref(uri);
+	if (!safeHref) {
+		return '<code class="text-info">' + display + '</code>';
+	}
+	return '<a href="' + escapeHtml(safeHref) + '" rel="noopener noreferrer">' + display + '</a>';
+}
 
 function addPrimaryTableData(name, column1, column2, column3, column4) {
 	$(".status-table-primary").append(
@@ -10,7 +34,7 @@ function addPrimaryTableData(name, column1, column2, column3, column4) {
 }
 function addRaftTableData(name, column1, column2) {
 	$(".status-table-raft").append(
-    '<tr><td>' + escapeHtml(name) + '</td>' +
+    '<tr><td>' + name + '</td>' +
     '<td>' + column1 + '</td>' +
     '<td><code class="text-info">' + column2 + '</code></td></tr>'
 	);
@@ -28,7 +52,7 @@ function addStatusActionButton(name, uri) {
 $(document).ready(function () {
 	var statusObject = $("#orchestratorStatus .panel-body");
     $.get(appUrl("/api/health/"), function (health) {
-    	statusObject.prepend('<h4>'+health.Message+'</h4>')
+    	statusObject.prepend('<h4>'+escapeHtml(health.Message)+'</h4>')
         $(".status-table-primary").append(
             '<tr><td></td>' +
             '<td><b>Hostname</b></td>' +
@@ -43,23 +67,23 @@ $(document).ready(function () {
 				}
 				var message = '';
 				message += '<code class="text-info"><strong>';
-				message += node.Hostname;
+				message += escapeHtml(node.Hostname);
 				message += '</strong></code>';
 				message += '</br>';
 
 				message += '<code class="text-info">';
 				if (node.Hostname == health.Details.ActiveNode.Hostname && node.Token == health.Details.ActiveNode.Token) {
-					message += '<span class="text-success">[Elected at '+health.Details.ActiveNode.FirstSeenActive+']</span>';
+					message += '<span class="text-success">[Elected at '+escapeHtml(health.Details.ActiveNode.FirstSeenActive)+']</span>';
 				}
 				if (node.Hostname == health.Details.Hostname) {
 					message += '<span class="text-primary">[This node]</span>';
     		}
 				message += '</code>';
 
-        var running_since ='<span class="text-info">'+node.FirstSeenActive+'</span>';
-				var address = node.DBBackend;
+        var running_since ='<span class="text-info">'+escapeHtml(node.FirstSeenActive)+'</span>';
+				var address = escapeHtml(node.DBBackend);
 
-        addPrimaryTableData("Available node", message, running_since, address, app_version);
+        addPrimaryTableData("Available node", message, running_since, address, escapeHtml(app_version));
     	})
 
     	var userId = getUserId();
@@ -67,7 +91,7 @@ $(document).ready(function () {
     		userId = "[unknown]"
     	}
     	var userStatus = (isAuthorizedForAction() ? "admin" : "read only");
-      addPrimaryTableData("You", userId + ", " + userStatus, "", "", "");
+      addPrimaryTableData("You", escapeHtml(userId) + ", " + userStatus, "", "", "");
 
 			if (health.Details.RaftLeader != "") {
 				$(".status-table-raft").append(
@@ -84,7 +108,7 @@ $(document).ready(function () {
 					message += '<code class="text-info"><span class="text-primary">[This node]</span></code>';
 				}
 				var raftLeaderUri = health.Details.RaftLeaderURI;
-				addRaftTableData("Raft leader", message, '<a href="'+escapeHtml(raftLeaderUri)+'">'+escapeHtml(raftLeaderUri)+'</a>');
+				addRaftTableData("Raft leader", message, raftLeaderUriCellHtml(raftLeaderUri));
 			}
 			health.Details.RaftHealthyMembers = health.Details.RaftHealthyMembers || []
 			if (health.Details.RaftHealthyMembers) {

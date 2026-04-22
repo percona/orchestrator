@@ -187,7 +187,7 @@ function apiCommand(uri, hint) {
   }, "json").fail(function(operationResult) {
     hideLoader();
     if (operationResult.responseJSON.Code == "ERROR") {
-      addAlert(operationResult.responseJSON.Message)
+      addAlert(escapeHtml(operationResult.responseJSON.Message))
     }
   });
   return false;
@@ -217,7 +217,7 @@ function reloadWithOperationResult(operationResult, hint) {
 
 // Modal
 
-function addNodeModalDataAttribute(name, value) {
+function addNodeModalDataAttribute(name, value, valueIsHtml) {
   var codeClass = "text-primary";
   if (value == "true" || value == true) {
     codeClass = "text-success";
@@ -228,14 +228,15 @@ function addNodeModalDataAttribute(name, value) {
   if (name == "Maintenance") {
     codeClass = "text-danger";
   }
+  var displayValue = valueIsHtml ? value : escapeHtml(value);
   $('#modalDataAttributesTable').append(
-    '<tr><td>' + name + '</td><td><code class="' + codeClass + '"><strong>' + value + '</strong></code><div class="pull-right attributes-buttons"></div></td></tr>');
+    '<tr><td>' + name + '</td><td><code class="' + codeClass + '"><strong>' + displayValue + '</strong></code><div class="pull-right attributes-buttons"></div></td></tr>');
   return $('#modalDataAttributesTable tr:last td:last');
 }
 
 function addModalAlert(alertText) {
   $("#node_modal .modal-body").append(
-    '<div class="alert alert-danger alert-dismissable">' + '<button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>' + alertText + '</div>');
+    '<div class="alert alert-danger alert-dismissable">' + '<button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>' + escapeHtml(alertText) + '</div>');
   $(".alert").alert();
   return false;
 }
@@ -252,7 +253,7 @@ function openNodeModal(node) {
   $('#node_modal #modalDataAttributesTable button[data-btn][data-grouped!=true]').appendTo("#node_modal .modal-footer");
   $('#node_modal #modalDataAttributesTable [data-btn-group]').appendTo("#node_modal .modal-footer");
 
-  $('#node_modal .modal-title').html('<code class="text-primary">' + node.title + "</code>");
+  $('#node_modal .modal-title').html('<code class="text-primary">' + escapeHtml(node.title) + "</code>");
 
   $('#modalDataAttributesTable').html("");
 
@@ -394,19 +395,19 @@ function openNodeModal(node) {
   addNodeModalDataAttribute("Data center", node.DataCenter);
   addNodeModalDataAttribute("Physical environment", node.PhysicalEnvironment);
   addNodeModalDataAttribute("Cluster",
-    '<a href="' + appUrl('/web/cluster/' + node.ClusterName) + '">' + node.ClusterName + '</a>');
+    '<a href="' + appUrl('/web/cluster/' + encodeURIComponent(node.ClusterName)) + '">' + escapeHtml(node.ClusterName) + '</a>', true);
   addNodeModalDataAttribute("Audit",
-    '<a href="' + appUrl('/web/audit/instance/' + node.Key.Hostname + '/' + node.Key.Port) + '">' + node.title + '</a>');
+    '<a href="' + appUrl('/web/audit/instance/' + encodeURIComponent(node.Key.Hostname) + '/' + encodeURIComponent(node.Key.Port)) + '">' + escapeHtml(node.title) + '</a>', true);
   addNodeModalDataAttribute("Agent",
-    '<a href="' + appUrl('/web/agent/' + node.Key.Hostname) + '">' + node.Key.Hostname + '</a>');
+    '<a href="' + appUrl('/web/agent/' + encodeURIComponent(node.Key.Hostname)) + '">' + escapeHtml(node.Key.Hostname) + '</a>', true);
 
   $.get(appUrl("/api/tags/" + node.Key.Hostname + "/" + node.Key.Port), function(tagStrings) {
     var tagsText = "";
     if (tagStrings.length) {
       tagStrings.forEach(function(tag){
-        tagsText = tagsText.concat(tag, '<br>');
+        tagsText = tagsText.concat(escapeHtml(tag), '<br>');
       })
-      addNodeModalDataAttribute("Tags", tagsText);
+      addNodeModalDataAttribute("Tags", tagsText, true);
     }
   }, "json");
 
@@ -449,7 +450,7 @@ function openNodeModal(node) {
     apiCommand("/api/reattach-replica-master-host/" + node.Key.Hostname + "/" + node.Key.Port);
   });
   $('#node_modal button[data-btn=reset-replica]').click(function() {
-    var message = "<p>Are you sure you wish to reset <code><strong>" + node.Key.Hostname + ":" + node.Key.Port +
+    var message = "<p>Are you sure you wish to reset <code><strong>" + escapeHtml(node.Key.Hostname) + ":" + escapeHtml(node.Key.Port) +
       "</strong></code>?" +
       "<p>This will stop and break the replication." +
       "<p>FYI, this is a destructive operation that cannot be easily reverted";
@@ -461,7 +462,7 @@ function openNodeModal(node) {
     return false;
   });
   $('#node_modal [data-btn=gtid-errant-reset-master]').click(function() {
-    var message = "<p>Are you sure you wish to reset master on <code><strong>" + node.Key.Hostname + ":" + node.Key.Port +
+    var message = "<p>Are you sure you wish to reset master on <code><strong>" + escapeHtml(node.Key.Hostname) + ":" + escapeHtml(node.Key.Port) +
       "</strong></code>?" +
       "<p>This will purge binary logs on server.";
     bootbox.confirm(message, function(confirm) {
@@ -487,7 +488,7 @@ function openNodeModal(node) {
     apiCommand("/api/set-writeable/" + node.Key.Hostname + "/" + node.Key.Port);
   });
   $('#node_modal button[data-btn=enable-gtid]').click(function() {
-    var message = "<p>Are you sure you wish to enable GTID on <code><strong>" + node.Key.Hostname + ":" + node.Key.Port +
+    var message = "<p>Are you sure you wish to enable GTID on <code><strong>" + escapeHtml(node.Key.Hostname) + ":" + escapeHtml(node.Key.Port) +
       "</strong></code>?" +
       "<p>Replication <i>might</i> break as consequence";
     bootbox.confirm(message, function(confirm) {
@@ -497,7 +498,7 @@ function openNodeModal(node) {
     });
   });
   $('#node_modal button[data-btn=disable-gtid]').click(function() {
-    var message = "<p>Are you sure you wish to disable GTID on <code><strong>" + node.Key.Hostname + ":" + node.Key.Port +
+    var message = "<p>Are you sure you wish to disable GTID on <code><strong>" + escapeHtml(node.Key.Hostname) + ":" + escapeHtml(node.Key.Port) +
       "</strong></code>?" +
       "<p>Replication <i>might</i> break as consequence";
     bootbox.confirm(message, function(confirm) {
@@ -507,7 +508,7 @@ function openNodeModal(node) {
     });
   });
   $('#node_modal button[data-btn=forget-instance]').click(function() {
-    var message = "<p>Are you sure you wish to forget <code><strong>" + node.Key.Hostname + ":" + node.Key.Port +
+    var message = "<p>Are you sure you wish to forget <code><strong>" + escapeHtml(node.Key.Hostname) + ":" + escapeHtml(node.Key.Port) +
       "</strong></code>?" +
       "<p>It may be re-discovered if accessible from an existing instance through replication topology.";
     bootbox.confirm(message, function(confirm) {
@@ -525,9 +526,9 @@ function openNodeModal(node) {
   });
 
   if (node.IsDowntimed) {
-    $('#node_modal .end-downtime .panel-heading').html("Downtimed by <strong>" + node.DowntimeOwner + "</strong> until " + node.DowntimeEndTimestamp);
+    $('#node_modal .end-downtime .panel-heading').html("Downtimed by <strong>" + escapeHtml(node.DowntimeOwner) + "</strong> until " + escapeHtml(node.DowntimeEndTimestamp));
     $('#node_modal .end-downtime .panel-body').html(
-      node.DowntimeReason
+      escapeHtml(node.DowntimeReason)
     );
     $('#node_modal .begin-downtime').hide();
     $('#node_modal button[data-btn=begin-downtime]').hide();
@@ -579,7 +580,7 @@ function openNodeModal(node) {
     $('#node_modal button[data-btn=regroup-replicas]').show();
   }
   $('#node_modal button[data-btn=regroup-replicas]').click(function() {
-    var message = "<p>Are you sure you wish to regroup replicas of <code><strong>" + node.Key.Hostname + ":" + node.Key.Port +
+    var message = "<p>Are you sure you wish to regroup replicas of <code><strong>" + escapeHtml(node.Key.Hostname) + ":" + escapeHtml(node.Key.Port) +
       "</strong></code>?" +
       "<p>This will attempt to promote one replica over its siblings";
     bootbox.confirm(message, function(confirm) {
@@ -598,7 +599,7 @@ function openNodeModal(node) {
     if (isSilentUI()) {
       apiCommand(apiUrl);
     } else {
-      var message = "<p>Are you sure you want <code><strong>" + node.Key.Hostname + ":" + node.Key.Port +
+      var message = "<p>Are you sure you want <code><strong>" + escapeHtml(node.Key.Hostname) + ":" + escapeHtml(node.Key.Port) +
         "</strong></code> to take its siblings?";
       bootbox.confirm(message, function(confirm) {
         if (confirm) {
@@ -900,7 +901,7 @@ function renderInstanceElement(popoverElement, instance, renderType) {
   }
   popoverElement.find("h3").attr('title', tooltip);
   popoverElement.find("h3").html('&nbsp;<div class="pull-left">' +
-    (isAnonymized() ? anonymizedInstanceId : isAliased() ? instance.InstanceAlias : instance.canonicalTitle) +
+    escapeHtml(isAnonymized() ? anonymizedInstanceId : isAliased() ? instance.InstanceAlias : instance.canonicalTitle) +
     '</div><div class="pull-right instance-glyphs"><span class="glyphicon glyphicon-cog" title="Open config dialog"></span></div>');
   var indicateLastSeenInStatus = false;
 
@@ -908,17 +909,18 @@ function renderInstanceElement(popoverElement, instance, renderType) {
     popoverElement.find("h3 div.pull-right span").remove();
     popoverElement.find(".instance-content").append('<div>Instances: <div class="pull-right"></div></div>');
 
-    function addInstancesBadge(count, badgeClass, title) {
-      popoverElement.find(".instance-content .pull-right").append('<span class="badge ' + badgeClass + '" data-toggle="tooltip" data-placement="bottom" data-html="true" title="' + title + '">' + count + '</span> ');
+    // title may contain intentional <br> for Bootstrap data-html tooltips; escape only instance lines.
+    function addInstancesBadge(count, badgeClass, titleHtml) {
+      popoverElement.find(".instance-content .pull-right").append('<span class="badge ' + badgeClass + '" data-toggle="tooltip" data-placement="bottom" data-html="true" title="' + titleHtml + '">' + count + '</span> ');
       popoverElement.find('[data-toggle="tooltip"]').tooltip();
     }
-    var instancesHint = instance.aggregatedProblems[""].join("<br>");
+    var instancesHint = (instance.aggregatedProblems[""] || []).map(escapeHtml).join("<br>");
     addInstancesBadge(instance.aggregatedInstances.length, "label-primary", "Aggregated instances<br>" + instancesHint);
 
     for (var problemType in instance.aggregatedProblems) {
       if (errorMapping[problemType]) {
         var description = errorMapping[problemType]["description"];
-        var instancesHint = instance.aggregatedProblems[problemType].join("<br>");
+        var instancesHint = (instance.aggregatedProblems[problemType] || []).map(escapeHtml).join("<br>");
         addInstancesBadge(instance.aggregatedProblems[problemType].length, errorMapping[problemType]["badge"], description + "<br>" + instancesHint);
       }
     }
@@ -968,7 +970,7 @@ function renderInstanceElement(popoverElement, instance, renderType) {
         text_style = "";
       else
         text_style = "text-muted";
-      popoverElement.find("h3 div.pull-right").prepend('<span class="glyphicon '+ text_style +' glyphicon-tower" title="Group replication '+ instance.ReplicationGroupMemberRole + ' ' + instance.ReplicationGroupMemberState +'"></span> ');
+      popoverElement.find("h3 div.pull-right").prepend('<span class="glyphicon '+ text_style +' glyphicon-tower" title="Group replication '+ escapeHtml(instance.ReplicationGroupMemberRole) + ' ' + escapeHtml(instance.ReplicationGroupMemberState) +'"></span> ');
     }
 
     if (instance.IsCandidate) {
@@ -988,14 +990,14 @@ function renderInstanceElement(popoverElement, instance, renderType) {
     }
     if (instance.IsDowntimed) {
       var downtimeMessage = 'Downtimed by ' + instance.DowntimeOwner + ': ' + instance.DowntimeReason + '.\nEnds: ' + instance.DowntimeEndTimestamp;
-      popoverElement.find("h3 div.pull-right").prepend('<span class="glyphicon glyphicon-volume-off" title="' + downtimeMessage + '"></span> ');
+      popoverElement.find("h3 div.pull-right").prepend('<span class="glyphicon glyphicon-volume-off" title="' + escapeHtml(downtimeMessage) + '"></span> ');
     }
 
     $.get(appUrl("/api/tags/" + instance.Key.Hostname + "/" + instance.Key.Port), function(tagStrings) {
       if (tagStrings.length) {
         var tagsText = "";
         tagStrings.forEach(function(tag) {
-          tagsText = tagsText.concat(tag, '&#10;');
+          tagsText = tagsText.concat(escapeHtml(tag), '&#10;');
         });
         popoverElement.find("h3 div.pull-right").prepend('<span class="glyphicon glyphicon-tags" title="' + tagsText +'"></span> ');
       }
@@ -1032,19 +1034,20 @@ function renderInstanceElement(popoverElement, instance, renderType) {
     }
     var identityHtml = '';
     if (isAnonymized()) {
-      identityHtml += instance.Version.match(/[^.]+[.][^.]+/);
+      var versionShort = instance.Version.match(/[^.]+[.][^.]+/);
+      identityHtml += escapeHtml((versionShort && versionShort[0]) ? versionShort[0] : '');
     } else {
-      identityHtml += instance.Version;
+      identityHtml += escapeHtml(instance.Version);
     }
     if (instance.LogBinEnabled) {
       var format = instance.Binlog_format;
       if (format == 'ROW' && instance.BinlogRowImage != '') {
         format = format + "/" + instance.BinlogRowImage.substring(0,1);
       }
-      identityHtml += " " + format;
+      identityHtml += " " + escapeHtml(format);
     }
     if (!isAnonymized()) {
-      identityHtml += ', ' + instance.FlavorName;
+      identityHtml += ', ' + escapeHtml(instance.FlavorName);
     }
 
     var contentHtml = '' + '<div class="pull-right">' + statusMessage + ' </div>' + '<p class="instance-basic-info">' + identityHtml + '</p>';
@@ -1055,13 +1058,13 @@ function renderInstanceElement(popoverElement, instance, renderType) {
     }
     if (renderType == "search") {
       if (instance.SuggestedClusterAlias) {
-        contentHtml += '<p>' + 'Cluster: <a href="' + appUrl('/web/cluster/alias/' + instance.SuggestedClusterAlias) + '">' + instance.SuggestedClusterAlias + '</a>' + '</p>';
+        contentHtml += '<p>' + 'Cluster: <a href="' + appUrl('/web/cluster/alias/' + encodeURIComponent(instance.SuggestedClusterAlias)) + '">' + escapeHtml(instance.SuggestedClusterAlias) + '</a>' + '</p>';
       } else {
-        contentHtml += '<p>' + 'Cluster: <a href="' + appUrl('/web/cluster/' + instance.ClusterName) + '">' + instance.ClusterName + '</a>' + '</p>';
+        contentHtml += '<p>' + 'Cluster: <a href="' + appUrl('/web/cluster/' + encodeURIComponent(instance.ClusterName)) + '">' + escapeHtml(instance.ClusterName) + '</a>' + '</p>';
       }
     }
     if (renderType == "problems") {
-      contentHtml += '<p>' + 'Problem: <strong title="' + instance.problemDescription + '">' + instance.problem.replace(/_/g, ' ') + '</strong>' + '</p>';
+      contentHtml += '<p>' + 'Problem: <strong title="' + escapeHtml(instance.problemDescription) + '">' + escapeHtml(instance.problem.replace(/_/g, ' ')) + '</strong>' + '</p>';
     }
     popoverElement.find(".instance-content").html(contentHtml);
   }
@@ -1119,7 +1122,7 @@ function renderGlobalRecoveriesButton(isGlobalRecoveriesEnabled) {
 $(document).ready(function() {
   visualizeBrand();
   if (webMessage()) {
-    addAlert(webMessage(), "warning")
+    addAlert(escapeHtml(webMessage()), "warning")
   }
   $.get(appUrl("/api/clusters-info"), function(clusters) {
     clusters = clusters || [];
@@ -1134,11 +1137,11 @@ $(document).ready(function() {
     clusters.sort(sortAlphabetically);
 
     clusters.forEach(function(cluster) {
-      var url = appUrl('/web/cluster/' + cluster.ClusterName)
-      var title = cluster.ClusterName;
+      var url = appUrl('/web/cluster/' + encodeURIComponent(cluster.ClusterName))
+      var title = escapeHtml(cluster.ClusterName);
       if ((cluster.ClusterAlias != "") && (cluster.ClusterAlias != cluster.ClusterName)) {
         url = appUrl('/web/cluster/alias/' + encodeURIComponent(cluster.ClusterAlias));
-        title = '<strong>' + cluster.ClusterAlias + '</strong>, <span class="small">' + title + '</span>';;
+        title = '<strong>' + escapeHtml(cluster.ClusterAlias) + '</strong>, <span class="small">' + title + '</span>';
       }
       $("#dropdown-clusters").append('<li><a href="' + url + '">' + title + '</a></li>');
     });
@@ -1180,7 +1183,7 @@ $(document).ready(function() {
   }
   if (getUserId() != "" && !isAnonymized()) {
     $("[data-nav-page=user-id]").css('display', 'inline-block');
-    $("[data-nav-page=user-id] a").html(" " + getUserId());
+    $("[data-nav-page=user-id] a").html(" " + escapeHtml(getUserId()));
   }
   var orchestratorMsg = escapeHtml(getParameterByName("orchestrator-msg"))
   if (orchestratorMsg) {

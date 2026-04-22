@@ -21,15 +21,15 @@ function discover(hostname, port) {
     $.get(appUrl(uri), function (operationResult) {
         hideLoader();
         if (operationResult.Code == "ERROR" || operationResult.Details == null) {
-            addAlert(operationResult.Message)
+            addAlert(escapeHtml(operationResult.Message))
         } else {
         	var instance = operationResult.Details;
-            addInfo('Discovered <a href="' + appUrl('/web/search?s='+instance.Key.Hostname+":"+instance.Key.Port) + '" class="alert-link">'
-            		+instance.Key.Hostname+":"+instance.Key.Port+'</a>'
+            addInfo('Discovered <a href="' + appUrl('/web/search?s='+encodeURIComponent(instance.Key.Hostname+":"+instance.Key.Port)) + '" class="alert-link">'
+            		+escapeHtml(instance.Key.Hostname+":"+instance.Key.Port)+'</a>'
             	);
         }
     }, "json").fail(function (operationResult) {
         hideLoader();
-        addAlert(operationResult.responseJSON.Message)
+        addAlert(escapeHtml(operationResult.responseJSON.Message))
     });
 }

@@ -46,19 +46,19 @@ $(document).ready(function() {
       $("[data-agent=hostname]").html('<span class="alert-danger">Not found</span>');
       return;
     }
-    $("[data-agent=hostname]").html(agent.Hostname)
+    $("[data-agent=hostname]").text(agent.Hostname)
     $("[data-agent=hostname_search]").html(
-      '<a href="' + appUrl('/web/search?s=' + agent.Hostname + ':' + agent.MySQLPort) + '">' + agent.Hostname + '</a>' + '<div class="pull-right"><button class="btn btn-xs btn-success" data-command="discover" data-hostname="' + agent.Hostname + '" data-mysql-port="' + agent.MySQLPort + '">Discover</button></div>'
+      '<a href="' + appUrl('/web/search?s=' + encodeURIComponent(agent.Hostname + ':' + agent.MySQLPort)) + '">' + escapeHtml(agent.Hostname) + '</a>' + '<div class="pull-right"><button class="btn btn-xs btn-success" data-command="discover" data-hostname="' + escapeHtml(agent.Hostname) + '" data-mysql-port="' + escapeHtml(agent.MySQLPort) + '">Discover</button></div>'
     );
-    $("[data-agent=port]").html(agent.Port)
-    $("[data-agent=last_submitted]").html(agent.LastSubmitted)
+    $("[data-agent=port]").text(agent.Port)
+    $("[data-agent=last_submitted]").text(agent.LastSubmitted)
 
     var mySQLStatus = "" + agent.MySQLRunning + '<div class="pull-right">' +
       (agent.MySQLRunning ? '<button class="btn btn-xs btn-danger" data-command="mysql-stop">Stop</button>' :
         '<button class="btn btn-xs btn-success" data-command="mysql-start">Start</button>') +
       '</div>';
     $("[data-agent=mysql_running]").html(mySQLStatus)
-    $("[data-agent=mysql_port]").html(escapeHtml(agent.MySQLPort))
+    $("[data-agent=mysql_port]").text(agent.MySQLPort)
     $("[data-agent=mysql_disk_usage]").html(toHumanFormat(agent.MySQLDiskUsage))
 
     if (agent.MySQLErrorLogTail != null && agent.MySQLErrorLogTail.length > 0) {
@@ -69,10 +69,10 @@ $(document).ready(function() {
         }
         return row;
       });
-      $("[data-agent=mysql_error_log_tail]").html(rows[rows.length - 1])
+      $("[data-agent=mysql_error_log_tail]").text(rows[rows.length - 1])
       $("body").on("click", "a[data-agent=mysql_error_log_tail]", function(event) {
         rows = rows.map(function(row) {
-          return '<strong>' + row + '</strong>';
+          return '<strong>' + escapeHtml(row) + '</strong>';
         });
         rows = rows.map(function(row) {
           if (row.indexOf("[ERROR]") >= 0) {
@@ -122,9 +122,9 @@ $(document).ready(function() {
       if (agent.MountPoint.IsMounted) {
         mountedVolume = agent.MountPoint.LVPath;
         var mountMessage = '<td>';
-        mountMessage += '<code>' + mountedVolume + '</code> mounted on ' +
-          '<code>' + agent.MountPoint.Path + '</code>, size ' + toHumanFormat(agent.MountPoint.DiskUsage);
-        mountMessage += '<br/>MySQL data path: <code>' + agent.MountPoint.MySQLDataPath + '</code>';
+        mountMessage += '<code>' + escapeHtml(mountedVolume) + '</code> mounted on ' +
+          '<code>' + escapeHtml(agent.MountPoint.Path) + '</code>, size ' + toHumanFormat(agent.MountPoint.DiskUsage);
+        mountMessage += '<br/>MySQL data path: <code>' + escapeHtml(agent.MountPoint.MySQLDataPath) + '</code>';
         mountMessage += '</td><td><div class="pull-right"><button class="btn btn-xs btn-danger" data-command="unmount">Unmount</button></div></td>';
         $("[data-agent=mount_point]").append(mountMessage);
       }
@@ -143,12 +143,12 @@ $(document).ready(function() {
           volumeText = '<button class="btn btn-xs btn-danger" data-command="unmount">Unmount</button>';
           volumeTextType = 'text-success';
         } else if (!(agent.MountPoint && agent.MountPoint.IsMounted)) {
-          volumeText += '<button class="btn btn-xs btn-success" data-command="mountlv" data-lv="' + volume + '">Mount</button>'
-          volumeText += ' <button class="btn btn-xs btn-danger" data-command="removelv" data-lv="' + volume + '">Remove</button>'
+          volumeText += '<button class="btn btn-xs btn-success" data-command="mountlv" data-lv="' + escapeHtml(volume) + '">Mount</button>'
+          volumeText += ' <button class="btn btn-xs btn-danger" data-command="removelv" data-lv="' + escapeHtml(volume) + '">Remove</button>'
         } else {
           // Do nothing
         }
-        volumeText = '<td><code class="' + volumeTextType + '"><strong>' + volume + '</strong></code><div class="pull-right">' + volumeText + '</div></td>';
+        volumeText = '<td><code class="' + volumeTextType + '"><strong>' + escapeHtml(volume) + '</strong></code><div class="pull-right">' + volumeText + '</div></td>';
         return volumeText;
       });
       result = result.map(function(entry) {
@@ -173,13 +173,13 @@ $(document).ready(function() {
     $.get(appUrl("/api/agent-umount/" + currentAgentHost()), function(operationResult) {
       hideLoader();
       if (operationResult.Code == "ERROR") {
-        addAlert(operationResult.Message)
+        addAlert(escapeHtml(operationResult.Message))
       } else {
         location.reload();
       }
     }, "json").fail(function (operationResult) {
       hideLoader();
-      addAlert(operationResult.responseJSON.Message)
+      addAlert(escapeHtml(operationResult.responseJSON.Message))
     });
   });
   $("body").on("click", "button[data-command=mountlv]", function(event) {
@@ -188,71 +188,71 @@ $(document).ready(function() {
     $.get(appUrl("/api/agent-mount/" + currentAgentHost() + "?lv=" + encodeURIComponent(lv)), function(operationResult) {
       hideLoader();
       if (operationResult.Code == "ERROR") {
-        addAlert(operationResult.Message)
+        addAlert(escapeHtml(operationResult.Message))
       } else {
         location.reload();
       }
     }, "json").fail(function (operationResult) {
       hideLoader();
-      addAlert(operationResult.responseJSON.Message)
+      addAlert(escapeHtml(operationResult.responseJSON.Message))
     });
   });
   $("body").on("click", "button[data-command=removelv]", function(event) {
     var lv = $(event.target).attr("data-lv")
-    var message = "Are you sure you wish to remove logical volume <code><strong>" + lv + "</strong></code>?";
+    var message = "Are you sure you wish to remove logical volume <code><strong>" + escapeHtml(lv) + "</strong></code>?";
     bootbox.confirm(message, function(confirm) {
       if (confirm) {
         showLoader();
         $.get(appUrl("/api/agent-removelv/" + currentAgentHost() + "?lv=" + encodeURIComponent(lv)), function(operationResult) {
           hideLoader();
           if (operationResult.Code == "ERROR") {
-            addAlert(operationResult.Message)
+            addAlert(escapeHtml(operationResult.Message))
           } else {
             location.reload();
           }
         }, "json").fail(function (operationResult) {
           hideLoader();
-          addAlert(operationResult.responseJSON.Message)
+          addAlert(escapeHtml(operationResult.responseJSON.Message))
         });
       }
     });
   });
   $("body").on("click", "button[data-command=create-snapshot]", function(event) {
     var message = "Are you sure you wish to create a new snapshot on <code><strong>" +
-      currentAgentHost() + "</strong></code>?";
+      escapeHtml(currentAgentHost()) + "</strong></code>?";
     bootbox.confirm(message, function(confirm) {
       if (confirm) {
         showLoader();
         $.get(appUrl("/api/agent-create-snapshot/" + currentAgentHost()), function(operationResult) {
           hideLoader();
           if (operationResult.Code == "ERROR") {
-            addAlert(operationResult.Message)
+            addAlert(escapeHtml(operationResult.Message))
           } else {
             location.reload();
           }
         }, "json").fail(function (operationResult) {
           hideLoader();
-          addAlert(operationResult.responseJSON.Message)
+          addAlert(escapeHtml(operationResult.responseJSON.Message))
         });
       }
     });
   });
   $("body").on("click", "button[data-command=mysql-stop]", function(event) {
     var message = "Are you sure you wish to shut down MySQL service on <code><strong>" +
-      currentAgentHost() + "</strong></code>?";
+      escapeHtml(currentAgentHost()) + "</strong></code>?";
     bootbox.confirm(message, function(confirm) {
       if (confirm) {
         showLoader();
         $.get(appUrl("/api/agent-mysql-stop/" + currentAgentHost()), function(operationResult) {
           hideLoader();
           if (operationResult.Code == "ERROR") {
-            addAlert(operationResult.Message)
+            addAlert(escapeHtml(operationResult.Message))
           } else {
             location.reload();
           }
         }, "json").fail(function (operationResult) {
           hideLoader();
-          addAlert(operationResult.responseJSON.Message)
+          addAlert(escapeHtml(operationResult.responseJSON.Message))
         });
       }
     });
@@ -262,13 +262,13 @@ $(document).ready(function() {
     $.get(appUrl("/api/agent-mysql-start/" + currentAgentHost()), function(operationResult) {
       hideLoader();
       if (operationResult.Code == "ERROR") {
-        addAlert(operationResult.Message)
+        addAlert(escapeHtml(operationResult.Message))
       } else {
         location.reload();
       }
     }, "json").fail(function (operationResult) {
       hideLoader();
-      addAlert(operationResult.responseJSON.Message)
+      addAlert(escapeHtml(operationResult.responseJSON.Message))
     });
   });
   $("body").on("click", "button[data-command=seed]", function(event) {
@@ -284,8 +284,8 @@ $(document).ready(function() {
     var isLocalSeed = ($(event.target).attr("data-seed-local") == "true");
 
     var message = "Are you sure you wish to destroy data on <code><strong>" +
-      currentAgentHost() + "</strong></code> and seed from <code><strong>" +
-      sourceHost + "</strong></code>?";
+      escapeHtml(currentAgentHost()) + "</strong></code> and seed from <code><strong>" +
+      escapeHtml(sourceHost) + "</strong></code>?";
     if (isLocalSeed) {
       message += '<p/><span class="text-success">This seed is dc-local</span>';
     } else {
@@ -295,16 +295,16 @@ $(document).ready(function() {
     bootbox.confirm(message, function(confirm) {
       if (confirm) {
         showLoader();
-        $.get(appUrl("/api/agent-seed/" + currentAgentHost() + "/" + sourceHost), function(operationResult) {
+        $.get(appUrl("/api/agent-seed/" + encodeURIComponent(currentAgentHost()) + "/" + encodeURIComponent(sourceHost)), function(operationResult) {
           hideLoader();
           if (operationResult.Code == "ERROR") {
-            addAlert(operationResult.Message)
+            addAlert(escapeHtml(operationResult.Message))
           } else {
             location.reload();
           }
         }, "json").fail(function (operationResult) {
           hideLoader();
-          addAlert(operationResult.responseJSON.Message)
+          addAlert(escapeHtml(operationResult.responseJSON.Message))
         });
       }
     });

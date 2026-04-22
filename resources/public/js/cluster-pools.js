@@ -35,8 +35,8 @@ $(document).ready(function() {
     }
     pools.sort(sortByCountInstances);
 
-    function addInstancesBadge(poolName, count, badgeClass, title) {
-      $("#pools [data-pool-name='" + poolName + "'].popover").find(".popover-content .pull-right").append('<span class="badge ' + badgeClass + '" title="' + title + '">' + count + '</span> ');
+    function addInstancesBadge(popoverElement, count, badgeClass, title) {
+      popoverElement.find(".popover-content .pull-right").append('<span class="badge ' + badgeClass + '" title="' + title + '">' + count + '</span> ');
     }
 
     function incrementPoolProblems(poolName, problemType) {
@@ -67,14 +67,14 @@ $(document).ready(function() {
     });
 
     pools.forEach(function(pool) {
-      $("#pools").append('<div xmlns="http://www.w3.org/1999/xhtml" class="popover instance right" data-pool-name="' + pool.name + '"><div class="arrow"></div><h3 class="popover-title"><div class="pull-left"><span>' + pool.name + '</span></div><div class="pull-right"></div>&nbsp;<br/>&nbsp;</h3><div class="popover-content"></div></div>');
-      var popoverElement = $("#pools [data-pool-name='" + pool.name + "'].popover");
+      $("#pools").append('<div xmlns="http://www.w3.org/1999/xhtml" class="popover instance right" data-pool-name="' + escapeHtml(pool.name) + '"><div class="arrow"></div><h3 class="popover-title"><div class="pull-left"><span>' + escapeHtml(pool.name) + '</span></div><div class="pull-right"></div>&nbsp;<br/>&nbsp;</h3><div class="popover-content"></div></div>');
+      var popoverElement = $("#pools .popover.instance.right").last();
 
       var contentHtml = '' + '<div>Instances: <div class="pull-right"></div><div class="pool-instances-listing"></div></div>';
       popoverElement.find(".popover-content").html(contentHtml);
-      addInstancesBadge(pool.name, pool.instances.length, "label-primary", "Total instances in pool");
+      addInstancesBadge(popoverElement, pool.instances.length, "label-primary", "Total instances in pool");
       for (var problemType in poolsProblems[pool.name]) {
-        addInstancesBadge(pool.name, poolsProblems[pool.name][problemType], errorMapping[problemType]["badge"], errorMapping[problemType]["description"]);
+        addInstancesBadge(popoverElement, poolsProblems[pool.name][problemType], errorMapping[problemType]["badge"], errorMapping[problemType]["description"]);
       }
       pool.instances.forEach(function(instance) {
         var instanceId = getInstanceId(instance.Hostname, instance.Port);
@@ -87,7 +87,7 @@ $(document).ready(function() {
         if (problemInstance && problemInstance.problemHint) {
           instanceContent += '<span class="badge ' + errorMapping[problemInstance.problemHint]["badge"] + '" title="' + errorMapping[problemInstance.problemHint]["description"] + '">&nbsp;</span> '
         }
-        instanceContent += instanceDisplay;
+        instanceContent += escapeHtml(instanceDisplay);
         instanceContent += "</div>";
         popoverElement.find("div.pool-instances-listing").append(instanceContent);
       });
@@ -106,7 +106,7 @@ $(document).ready(function() {
     activateRefreshTimer();
   }
   $("#dropdown-context").append('<li><a data-command="expand-instances">Expand</a></li>');
-  $("#dropdown-context").append('<li><a href="' + appUrl('/web/cluster/' + currentClusterName()) + '">Topology</a></li>');
+  $("#dropdown-context").append('<li><a href="' + appUrl('/web/cluster/' + encodeURIComponent(currentClusterName())) + '">Topology</a></li>');
   $("body").on("click", "a[data-command=expand-instances]", function(event) {
     isExpanded = !isExpanded;
     updateExpandedStatus();
