@@ -76,17 +76,22 @@ function isCompactDisplay() {
   return ($.cookie("compact-display") == "true");
 }
 
-// origin: https://vanillajstoolkit.com/
 /**
- * Sanitize and encode all HTML in a user-submitted string
+ * Escape & < > " ' for safe insertion into HTML (text or double-quoted attributes).
  * https://portswigger.net/web-security/cross-site-scripting/preventing
- * @param  {String} str  The user-submitted string
- * @return {String} str  The sanitized string
+ * @param  {String} str  Untrusted or remote-sourced string
+ * @return {String}
  */
-function sanitizeHTML (str) {
-	return str.replace(/[^\w-_. ]/gi, function (c) {
-		return '&#' + c.charCodeAt(0) + ';';
-	});
+function escapeHtml(str) {
+	if (str === null || str === undefined) {
+		return '';
+	}
+	return String(str)
+		.replace(/&/g, '&amp;')
+		.replace(/</g, '&lt;')
+		.replace(/>/g, '&gt;')
+		.replace(/"/g, '&quot;')
+		.replace(/'/g, '&#39;');
 }
 
 function anonymizeInstanceId(instanceId) {
@@ -304,7 +309,7 @@ function openNodeModal(node) {
           return;
         }
         var title = canonizeInstanceTitle(equivalence.Key.Hostname + ':' + equivalence.Key.Port);
-        $('#node_modal [data-btn-group=move-equivalent] ul').append('<li><a href="#" data-btn="move-equivalent" data-hostname="' + equivalence.Key.Hostname + '" data-port="' + equivalence.Key.Port + '">' + title + '</a></li>');
+        $('#node_modal [data-btn-group=move-equivalent] ul').append('<li><a href="#" data-btn="move-equivalent" data-hostname="' + escapeHtml(equivalence.Key.Hostname) + '" data-port="' + escapeHtml(equivalence.Key.Port) + '">' + escapeHtml(title) + '</a></li>');
       });
 
       if ($('#node_modal [data-btn-group=move-equivalent] ul li').length) {
@@ -1177,7 +1182,7 @@ $(document).ready(function() {
     $("[data-nav-page=user-id]").css('display', 'inline-block');
     $("[data-nav-page=user-id] a").html(" " + getUserId());
   }
-  var orchestratorMsg = sanitizeHTML(getParameterByName("orchestrator-msg"))
+  var orchestratorMsg = escapeHtml(getParameterByName("orchestrator-msg"))
   if (orchestratorMsg) {
     addInfo(orchestratorMsg)
 

@@ -58,7 +58,7 @@ $(document).ready(function() {
         '<button class="btn btn-xs btn-success" data-command="mysql-start">Start</button>') +
       '</div>';
     $("[data-agent=mysql_running]").html(mySQLStatus)
-    $("[data-agent=mysql_port]").html(agent.MySQLPort)
+    $("[data-agent=mysql_port]").html(escapeHtml(agent.MySQLPort))
     $("[data-agent=mysql_disk_usage]").html(toHumanFormat(agent.MySQLDiskUsage))
 
     if (agent.MySQLErrorLogTail != null && agent.MySQLErrorLogTail.length > 0) {
@@ -96,11 +96,11 @@ $(document).ready(function() {
       });
       result = result.map(function(hostname) {
         if (hostname == agent.Hostname) {
-          return '<td><span class="">' + hostname + '</span></td><td></td>';
+          return '<td><span class="">' + escapeHtml(hostname) + '</span></td><td></td>';
         }
         var isLocal = $.inArray(hostname, agent.AvailableLocalSnapshots) >= 0;
         var btnType = (isLocal ? "btn-success" : "btn-warning");
-        return '<td><a href="' + appUrl('/web/agent/' + hostname) + '">' + hostname + '</a><div class="pull-right"><button class="btn btn-xs ' + btnType + '" data-command="seed" data-seed-source-host="' + hostname + '" data-seed-local="' + isLocal + '" data-mysql-running="' + agent.MySQLRunning + '">Seed</button></div></td>';
+        return '<td><a href="' + appUrl('/web/agent/' + encodeURIComponent(hostname)) + '">' + escapeHtml(hostname) + '</a><div class="pull-right"><button class="btn btn-xs ' + btnType + '" data-command="seed" data-seed-source-host="' + escapeHtml(hostname) + '" data-seed-local="' + isLocal + '" data-mysql-running="' + agent.MySQLRunning + '">Seed</button></div></td>';
       });
       result = result.map(function(entry) {
         return '<tr>' + entry + '</tr>';

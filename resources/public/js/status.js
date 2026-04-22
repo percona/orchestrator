@@ -10,7 +10,7 @@ function addPrimaryTableData(name, column1, column2, column3, column4) {
 }
 function addRaftTableData(name, column1, column2) {
 	$(".status-table-raft").append(
-    '<tr><td>' + name + '</td>' +
+    '<tr><td>' + escapeHtml(name) + '</td>' +
     '<td>' + column1 + '</td>' +
     '<td><code class="text-info">' + column2 + '</code></td></tr>'
 	);
@@ -77,20 +77,21 @@ $(document).ready(function () {
         );
 				var message = '';
 				message += '<code class="text-info"><strong>';
-				message += health.Details.RaftLeader;
+				message += escapeHtml(health.Details.RaftLeader);
 				message += '</strong></code>';
 				message += '</br>';
 				if (health.Details.IsRaftLeader) {
 					message += '<code class="text-info"><span class="text-primary">[This node]</span></code>';
 				}
-				addRaftTableData("Raft leader", message, '<a href="'+health.Details.RaftLeaderURI+'">'+health.Details.RaftLeaderURI+'</a>');
+				var raftLeaderUri = health.Details.RaftLeaderURI;
+				addRaftTableData("Raft leader", message, '<a href="'+escapeHtml(raftLeaderUri)+'">'+escapeHtml(raftLeaderUri)+'</a>');
 			}
 			health.Details.RaftHealthyMembers = health.Details.RaftHealthyMembers || []
 			if (health.Details.RaftHealthyMembers) {
 				health.Details.RaftHealthyMembers.sort().forEach(function(node) {
 					var message = '';
 					message += '<code class="text-info"><strong>';
-					message += node;
+					message += escapeHtml(node);
 					message += '</strong></code>';
 					message += '</br>';
 					if (node == health.Details.RaftAdvertise) {

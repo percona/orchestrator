@@ -79,7 +79,7 @@ $(document).ready(function() {
 
     function displayAnalysisEntry(analysisEntry, popoverElement) {
       var blockedKey = getBlockedRecoveryKey(analysisEntry.AnalyzedInstanceKey.Hostname, analysisEntry.AnalyzedInstanceKey.Port, analysisEntry.Analysis);
-      var displayText = '<hr/><span><strong>' + analysisEntry.Analysis + (analysisEntry.IsDowntimed ? '<br/>[<i>downtime till ' + analysisEntry.DowntimeEndTimestamp + '</i>]' : '') + (blockedrecoveriesMap[blockedKey] ? '<br/><span class="glyphicon glyphicon-exclamation-sign text-danger"></span> Blocked' : '') + "</strong></span>" + "<br/>" + "<span>" + analysisEntry.AnalyzedInstanceKey.Hostname + ":" + analysisEntry.AnalyzedInstanceKey.Port + "</span>";
+      var displayText = '<hr/><span><strong>' + escapeHtml(analysisEntry.Analysis) + (analysisEntry.IsDowntimed ? '<br/>[<i>downtime till ' + escapeHtml(analysisEntry.DowntimeEndTimestamp) + '</i>]' : '') + (blockedrecoveriesMap[blockedKey] ? '<br/><span class="glyphicon glyphicon-exclamation-sign text-danger"></span> Blocked' : '') + "</strong></span>" + "<br/>" + "<span>" + escapeHtml(analysisEntry.AnalyzedInstanceKey.Hostname) + ":" + escapeHtml(analysisEntry.AnalyzedInstanceKey.Port) + "</span>";
       if (analysisEntry.IsDowntimed) {
         displayText = '<div class="downtimed">' + displayText + '</div>';
       } else if (blockedrecoveriesMap[blockedKey]) {
@@ -99,7 +99,7 @@ $(document).ready(function() {
 
       if (typeof removeTextFromHostnameDisplay != "undefined" && removeTextFromHostnameDisplay()) {
         var title = cluster.ClusterName.replace(removeTextFromHostnameDisplay(), '');
-        popoverElement.find("h3 .pull-left a span").html(title);
+        popoverElement.find("h3 .pull-left a span").html(escapeHtml(title));
       }
       if (cluster.ClusterAlias != "") {
         popoverElement.find("h3 .pull-left a span").addClass("small");

@@ -1388,7 +1388,7 @@ function Cluster() {
         instancesTitles.push(instance.title);
       });
       var instancesTitlesConcatenates = instancesTitles.join(" ");
-      bootbox.alert("Heuristic list of OSC controller replicas: <pre>" + instancesTitlesConcatenates + "</pre>");
+      bootbox.alert("Heuristic list of OSC controller replicas: <pre>" + escapeHtml(instancesTitlesConcatenates) + "</pre>");
     });
   }
 
