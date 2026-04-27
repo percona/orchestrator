@@ -364,7 +364,7 @@ func executeProcess(command string, env []string, topologyRecovery *TopologyReco
 		info = fmt.Sprintf("Completed %s in %v", fullDescription, time.Since(start))
 	} else {
 		info = fmt.Sprintf("Execution of %s failed in %v with error: %v", fullDescription, time.Since(start), err)
-		log.Errorf(info)
+		log.Errorf("%s", info)
 	}
 	AuditTopologyRecovery(topologyRecovery, info)
 	return err
@@ -2213,12 +2213,7 @@ func GracefulMasterTakeover(clusterName string, designatedKey *inst.InstanceKey,
 			err = credentialsErr
 		}
 	}
-	if designatedInstance.AllowTLS {
-		_, enableSSLErr := inst.EnableMasterSSL(&clusterMaster.Key)
-		if err == nil {
-			err = enableSSLErr
-		}
-	} else {
+	if !designatedInstance.AllowTLS {
 		_, enableSSLErr := inst.EnableMasterGetSourcePublicKey(&clusterMaster.Key)
 		if err == nil {
 			err = enableSSLErr

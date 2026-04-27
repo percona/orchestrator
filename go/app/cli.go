@@ -642,6 +642,21 @@ func Cli(command string, strict bool, instance string, destination string, owner
 			}
 			fmt.Println(instanceKey.DisplayString())
 		}
+	case registerCliCommand("change-master-credentials", "Replication, general", `Re-apply replication user/password (and SSL material, if ReplicationCredentialsQuery provides it) on an instance while preserving its existing SOURCE_SSL/TLS configuration.`):
+		{
+			instanceKey, _ = inst.FigureInstanceKey(instanceKey, thisInstanceKey)
+			if instanceKey == nil {
+				log.Fatal("Cannot deduce instance:", instance)
+			}
+			creds, err := inst.ReadReplicationCredentials(instanceKey)
+			if err != nil {
+				log.Fatale(err)
+			}
+			if _, err := inst.ChangeMasterCredentials(instanceKey, creds); err != nil {
+				log.Fatale(err)
+			}
+			fmt.Println(instanceKey.DisplayString())
+		}
 	case registerCliCommand("detach-replica-master-host", "Replication, general", `Stops replication and modifies Master_Host into an impossible, yet reversible, value.`):
 		{
 			instanceKey, _ = inst.FigureInstanceKey(instanceKey, thisInstanceKey)
@@ -1787,7 +1802,7 @@ func Cli(command string, strict bool, instance string, destination string, owner
 		// Help
 	case "help":
 		{
-			fmt.Fprintf(os.Stderr, availableCommandsUsage())
+			fmt.Fprint(os.Stderr, availableCommandsUsage())
 		}
 	default:
 		log.Fatalf("Unknown command: \"%s\". %s", command, availableCommandsUsage())

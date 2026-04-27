@@ -126,6 +126,19 @@ type Instance struct {
 	ElapsedDowntime      time.Duration
 	UnresolvedHostname   string
 	AllowTLS             bool
+	// Replication TLS settings from SHOW SLAVE/REPLICA STATUS, reapplied on CHANGE REPLICATION SOURCE / CHANGE MASTER.
+	ReplicationSSLCAFile           string
+	ReplicationSSLCAPath           string
+	ReplicationSSLCert             string
+	ReplicationSSLCipher           string
+	ReplicationSSLCRLFile          string
+	ReplicationSSLCRLPath          string
+	ReplicationSSLKey              string
+	ReplicationSSLVerifyServerCert sql.NullBool
+	ReplicationTLSVersion          string
+	ReplicationTLSCiphersuites     string
+	ReplicationSourcePublicKeyPath string
+	ReplicationGetSourcePublicKey  sql.NullBool
 
 	Problems []string
 

@@ -1,0 +1,62 @@
+#!/bin/bash
+#
+# Regression guard for ChangeMasterCredentials() -> CHANGE REPLICATION SOURCE TO.
+#
+# MySQL 8.4 preserves unspecified CHANGE REPLICATION SOURCE TO options at the
+# server level, so comparing SHOW REPLICA STATUS before/after does NOT detect
+# the bug: orchestrator can emit a bare "SOURCE_USER=..., SOURCE_PASSWORD=..."
+# and the replica will still report the old Source_SSL_* fields. The contract
+# we care about is what orchestrator sends on the wire - it must explicitly
+# re-include every TLS fragment on every CHANGE REPLICATION SOURCE TO. We
+# assert that by inspecting mysql.general_log on replica 10114.
+#
+set -euo pipefail
+
+MYSQL=(mysql -uci -pci -h127.0.0.1)
+
+"${MYSQL[@]}" --port=10114 -e "STOP REPLICA;"
+
+"${MYSQL[@]}" --port=10114 -e "TRUNCATE TABLE mysql.general_log;"
+
+orchestrator-client -c change-master-credentials -i 127.0.0.1:10114 >/dev/null
+
+change_stmt=$("${MYSQL[@]}" --port=10114 -sN -e "
+  SELECT argument FROM mysql.general_log
+   WHERE LOWER(CONVERT(argument USING utf8mb4))
+         REGEXP 'change (master|replication source) to'
+     AND LOWER(CONVERT(argument USING utf8mb4)) LIKE '%source_user%'
+   ORDER BY event_time ASC
+   LIMIT 1;
+")
+
+"${MYSQL[@]}" --port=10114 -e "SET GLOBAL general_log='OFF';"
+
+if [ -z "$change_stmt" ]; then
+  echo "ERROR: no CHANGE REPLICATION SOURCE TO statement captured in mysql.general_log"
+  "${MYSQL[@]}" --port=10114 -e "SELECT event_time, argument FROM mysql.general_log ORDER BY event_time LIMIT 50\G" || true
+  exit 1
+fi
+
+fail=0
+for fragment in \
+  "source_ssl_ca" \
+  "source_ssl_verify_server_cert" \
+  "source_tls_version" \
+  "source_public_key_path" \
+  "get_source_public_key" \
+  ; do
+  if ! echo "$change_stmt" | grep -qi "$fragment"; then
+    echo "MISSING fragment: $fragment"
+    fail=1
+  fi
+done
+
+if [ "$fail" -ne 0 ]; then
+  echo "--- captured CHANGE statement ---"
+  echo "$change_stmt"
+  exit 1
+fi
+
+"${MYSQL[@]}" --port=10114 -e "START REPLICA;"
+
+echo OK_CHANGE_MASTER_CREDENTIALS_EMITS_TLS_FRAGMENTS

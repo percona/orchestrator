@@ -269,7 +269,7 @@ Cleanup:
 
 	if err == nil {
 		message := fmt.Sprintf("moved %+v via equivalence coordinates below %+v", *instanceKey, *otherKey)
-		log.Debugf(message)
+		log.Debugf("%s", message)
 		AuditOperation("move-equivalent", instanceKey, message)
 	}
 	return instance, err
@@ -1031,13 +1031,7 @@ func MakeCoMaster(instanceKey *InstanceKey) (*Instance, error) {
 		}
 	}
 
-	if instance.AllowTLS {
-		log.Debugf("Enabling SSL replication")
-		_, err = EnableMasterSSL(&master.Key)
-		if err != nil {
-			goto Cleanup
-		}
-	} else {
+	if !instance.AllowTLS {
 		_, err = EnableMasterGetSourcePublicKey(&master.Key)
 		if err != nil {
 			goto Cleanup
