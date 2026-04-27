@@ -440,7 +440,7 @@ function Cluster() {
         accept: false
       };
     }
-    var droppableTitle = getInstanceDiv(droppableNode.id).find("h3 .pull-left").html();
+    var droppableTitle = getInstanceDiv(droppableNode.id).find("h3 .pull-left").text();
     if (moveInstanceMethod == "smart") {
       // Moving via GTID or Pseudo GTID
       if (node.hasConnectivityProblem || droppableNode.hasConnectivityProblem || droppableNode.isAggregate) {
@@ -476,7 +476,7 @@ function Cluster() {
         }
         return {
           accept: "ok",
-          type: '<span class="glyphicon glyphicon-exclamation-sign text-warning"></span> <strong>MAKE CO MASTER</strong> with ' + droppableTitle,
+          type: '<span class="glyphicon glyphicon-exclamation-sign text-warning"></span> <strong>MAKE CO MASTER</strong> with ' + escapeHtml(droppableTitle),
         };
       }
       if (instanceIsDescendant(droppableNode, node)) {
@@ -491,7 +491,7 @@ function Cluster() {
         }
         return {
           accept: "warning",
-          type: "relocate [" + node.aggregatedInstances.length + "] < " + droppableTitle
+          type: "relocate [" + node.aggregatedInstances.length + "] < " + escapeHtml(droppableTitle)
         };
       }
       // the general case
@@ -500,7 +500,7 @@ function Cluster() {
       }
       return {
         accept: "warning",
-        type: "relocate < " + droppableTitle
+        type: "relocate < " + escapeHtml(droppableTitle)
       };
     }
     var gtidBelowFunc = null;
@@ -553,7 +553,7 @@ function Cluster() {
         }
         return {
           accept: "ok",
-          type: '<span class="glyphicon glyphicon-exclamation-sign text-warning"></span> <strong>MAKE CO MASTER</strong> with ' + droppableTitle,
+          type: '<span class="glyphicon glyphicon-exclamation-sign text-warning"></span> <strong>MAKE CO MASTER</strong> with ' + escapeHtml(droppableTitle),
         };
       }
       if (instanceIsDescendant(droppableNode, node)) {
@@ -569,7 +569,7 @@ function Cluster() {
         }
         return {
           accept: "ok",
-          type: gtidOperationName + " " + droppableTitle
+          type: gtidOperationName + " " + escapeHtml(droppableTitle)
         };
       }
       if (isReplicationBehindSibling(node, droppableNode)) {
@@ -579,7 +579,7 @@ function Cluster() {
         }
         return {
           accept: "ok",
-          type: gtidOperationName + " " + droppableTitle
+          type: gtidOperationName + " " + escapeHtml(droppableTitle)
         };
       }
       // the general case, where there's no clear family connection, meaning we cannot infer
@@ -589,7 +589,7 @@ function Cluster() {
       }
       return {
         accept: "warning",
-        type: gtidOperationName + " " + droppableTitle
+        type: gtidOperationName + " " + escapeHtml(droppableTitle)
       };
     }
     if (moveInstanceMethod == "classic") {
@@ -624,7 +624,7 @@ function Cluster() {
           }
           return {
             accept: "ok",
-            type: '<span class="glyphicon glyphicon-exclamation-sign text-warning"></span> <strong>MAKE CO MASTER</strong> with ' + droppableTitle,
+            type: '<span class="glyphicon glyphicon-exclamation-sign text-warning"></span> <strong>MAKE CO MASTER</strong> with ' + escapeHtml(droppableTitle),
           };
         }
       }
@@ -644,7 +644,7 @@ function Cluster() {
         }
         return {
           accept: "ok",
-          type: "moveBelow " + droppableTitle
+          type: "moveBelow " + escapeHtml(droppableTitle)
         };
       }
       if (instanceIsGrandchild(node, droppableNode)) {
@@ -665,7 +665,7 @@ function Cluster() {
         }
         return {
           accept: "ok",
-          type: "moveUp under " + droppableTitle
+          type: "moveUp under " + escapeHtml(droppableTitle)
         };
       }
       if (instanceIsChild(node, droppableNode) && !droppableNode.isMaster) {
@@ -684,7 +684,7 @@ function Cluster() {
         }
         return {
           accept: "ok",
-          type: "takeMaster " + droppableTitle
+          type: "takeMaster " + escapeHtml(droppableTitle)
         };
       }
       if (instanceIsChild(droppableNode, node) && node.isMaster && !node.isCoMaster) {
@@ -698,7 +698,7 @@ function Cluster() {
         }
         return {
           accept: "ok",
-          type: '<span class="glyphicon glyphicon-exclamation-sign text-warning"></span> <strong>MAKE CO MASTER</strong> with ' + droppableTitle,
+          type: '<span class="glyphicon glyphicon-exclamation-sign text-warning"></span> <strong>MAKE CO MASTER</strong> with ' + escapeHtml(droppableTitle),
         };
       }
       return {
@@ -708,9 +708,9 @@ function Cluster() {
     if (shouldApply) {
       addAlert(
         "Cannot move <code><strong>" +
-        node.Key.Hostname + ":" + node.Key.Port +
+        escapeHtml(node.Key.Hostname) + ":" + escapeHtml(node.Key.Port) +
         "</strong></code> under <code><strong>" +
-        droppableNode.Key.Hostname + ":" + droppableNode.Key.Port +
+        escapeHtml(droppableNode.Key.Hostname) + ":" + escapeHtml(droppableNode.Key.Port) +
         "</strong></code>. " +
         "You may only move a node down below its sibling or up below its grandparent."
       );
@@ -729,7 +729,7 @@ function Cluster() {
       // Obviously this is also checked on server side, no need to try stupid hacks
       return unaccepted;
     }
-    var droppableTitle = getInstanceDiv(droppableNode.id).find("h3 .pull-left").html();
+    var droppableTitle = getInstanceDiv(droppableNode.id).find("h3 .pull-left").text();
 
     if (node.hasConnectivityProblem || droppableNode.hasConnectivityProblem || droppableNode.isAggregate) {
       // Obviously can't handle.
@@ -751,7 +751,7 @@ function Cluster() {
       }
       return {
         accept: "ok",
-        type: '<span class="glyphicon glyphicon-exclamation-sign text-warning"></span> <strong>take master</strong> ' + droppableTitle
+        type: '<span class="glyphicon glyphicon-exclamation-sign text-warning"></span> <strong>take master</strong> ' + escapeHtml(droppableTitle)
       };
     }
     if (instanceIsChild(node, droppableNode) &&
@@ -786,7 +786,7 @@ function Cluster() {
         accept: false
       };
     }
-    var droppableTitle = getInstanceDiv(droppableNode.id).find("h3 .pull-left").html();
+    var droppableTitle = getInstanceDiv(droppableNode.id).find("h3 .pull-left").text();
     if (moveInstanceMethod == "smart") {
       // Moving via GTID or Pseudo GTID
       if (droppableNode.hasConnectivityProblem || droppableNode.isAggregate) {
@@ -812,7 +812,7 @@ function Cluster() {
         }
         return {
           accept: "ok",
-          type: "relocate < " + droppableTitle
+          type: "relocate < " + escapeHtml(droppableTitle)
         };
       }
       if (instanceIsDescendant(droppableNode, node) && node.children.length <= 1) {
@@ -828,7 +828,7 @@ function Cluster() {
       }
       return {
         accept: "warning",
-        type: "relocate < " + droppableTitle
+        type: "relocate < " + escapeHtml(droppableTitle)
       };
     }
 
@@ -866,7 +866,7 @@ function Cluster() {
         }
         return {
           accept: "ok",
-          type: gtidOperationName + " < " + droppableTitle
+          type: gtidOperationName + " < " + escapeHtml(droppableTitle)
         };
       }
       if (instanceIsDescendant(droppableNode, node) && node.children.length <= 1) {
@@ -884,7 +884,7 @@ function Cluster() {
         }
         return {
           accept: "ok",
-          type: gtidOperationName + " < " + droppableTitle
+          type: gtidOperationName + " < " + escapeHtml(droppableTitle)
         };
       }
       // the general case, where there's no clear family connection, meaning we cannot infer
@@ -894,7 +894,7 @@ function Cluster() {
       }
       return {
         accept: "warning",
-        type: gtidOperationName + " < " + droppableTitle
+        type: gtidOperationName + " < " + escapeHtml(droppableTitle)
       };
     }
     if (moveInstanceMethod == "classic") {
@@ -905,7 +905,7 @@ function Cluster() {
         }
         return {
           accept: "ok",
-          type: "repointReplicas < " + droppableTitle
+          type: "repointReplicas < " + escapeHtml(droppableTitle)
         };
       }
       if (instanceIsChild(node, droppableNode)) {
@@ -914,7 +914,7 @@ function Cluster() {
         }
         return {
           accept: "ok",
-          type: "moveUpReplicas < " + droppableTitle
+          type: "moveUpReplicas < " + escapeHtml(droppableTitle)
         };
       }
       return {
@@ -924,9 +924,9 @@ function Cluster() {
     if (shouldApply) {
       addAlert(
         "Cannot move replicas of <code><strong>" +
-        node.Key.Hostname + ":" + node.Key.Port +
+        escapeHtml(node.Key.Hostname) + ":" + escapeHtml(node.Key.Port) +
         "</strong></code> under <code><strong>" +
-        droppableNode.Key.Hostname + ":" + droppableNode.Key.Port +
+        escapeHtml(droppableNode.Key.Hostname) + ":" + escapeHtml(droppableNode.Key.Port) +
         "</strong></code>. " +
         "You may only repoint or move up the replicas of an instance. Otherwise try Smart Mode."
       );
@@ -955,9 +955,9 @@ function Cluster() {
 
   function relocate(node, siblingNode) {
     var message = "<h4>relocate</h4>Are you sure you wish to turn <code><strong>" +
-      node.Key.Hostname + ":" + node.Key.Port +
+      escapeHtml(node.Key.Hostname) + ":" + escapeHtml(node.Key.Port) +
       "</strong></code> into a replica of <code><strong>" +
-      siblingNode.Key.Hostname + ":" + siblingNode.Key.Port +
+      escapeHtml(siblingNode.Key.Hostname) + ":" + escapeHtml(siblingNode.Key.Port) +
       "</strong></code>?" +
       "<h4>Note</h4><p>Orchestrator will try and figure out the best relocation path. This may involve multiple steps. " +
       "<p>In case multiple steps are involved, failure of one would leave your instance hanging in a different location than you expected, " +
@@ -969,9 +969,9 @@ function Cluster() {
   function relocateReplicas(node, siblingNode, pattern) {
     pattern = pattern || "";
     var message = "<h4>relocate-replicas</h4>Are you sure you wish to relocate replicas of <code><strong>" +
-      node.Key.Hostname + ":" + node.Key.Port +
+      escapeHtml(node.Key.Hostname) + ":" + escapeHtml(node.Key.Port) +
       "</strong></code> below <code><strong>" +
-      siblingNode.Key.Hostname + ":" + siblingNode.Key.Port +
+      escapeHtml(siblingNode.Key.Hostname) + ":" + escapeHtml(siblingNode.Key.Port) +
       "</strong></code>?" +
       "<h4>Note</h4><p>Orchestrator will try and figure out the best relocation path. This may involve multiple steps. " +
       "<p>In case multiple steps are involved, failure of one may leave some instances hanging in a different location than you expected, " +
@@ -982,7 +982,7 @@ function Cluster() {
 
   function repointReplicas(node, siblingNode) {
     var message = "<h4>repoint-replicas</h4>Are you sure you wish to repoint replicas of <code><strong>" +
-      node.Key.Hostname + ":" + node.Key.Port +
+      escapeHtml(node.Key.Hostname) + ":" + escapeHtml(node.Key.Port) +
       "</strong></code>?";
     var apiUrl = "/api/repoint-replicas/" + node.Key.Hostname + "/" + node.Key.Port;
     return executeMoveOperation(message, apiUrl);
@@ -990,9 +990,9 @@ function Cluster() {
 
   function moveUpReplicas(node, masterNode) {
     var message = "<h4>move-up-replicas</h4>Are you sure you wish to move up replicas of <code><strong>" +
-      node.Key.Hostname + ":" + node.Key.Port +
+      escapeHtml(node.Key.Hostname) + ":" + escapeHtml(node.Key.Port) +
       "</strong></code> below <code><strong>" +
-      masterNode.Key.Hostname + ":" + masterNode.Key.Port +
+      escapeHtml(masterNode.Key.Hostname) + ":" + escapeHtml(masterNode.Key.Port) +
       "</strong></code>?";
     var apiUrl = "/api/move-up-replicas/" + node.Key.Hostname + "/" + node.Key.Port;
     return executeMoveOperation(message, apiUrl);
@@ -1000,9 +1000,9 @@ function Cluster() {
 
   function matchReplicas(node, otherNode) {
     var message = "<h4>match-replicas</h4>Are you sure you wish to match replicas of <code><strong>" +
-      node.Key.Hostname + ":" + node.Key.Port +
+      escapeHtml(node.Key.Hostname) + ":" + escapeHtml(node.Key.Port) +
       "</strong></code> below <code><strong>" +
-      otherNode.Key.Hostname + ":" + otherNode.Key.Port +
+      escapeHtml(otherNode.Key.Hostname) + ":" + escapeHtml(otherNode.Key.Port) +
       "</strong></code>?";
     var apiUrl = "/api/match-replicas/" + node.Key.Hostname + "/" + node.Key.Port + "/" + otherNode.Key.Hostname + "/" + otherNode.Key.Port;
     return executeMoveOperation(message, apiUrl);
@@ -1010,9 +1010,9 @@ function Cluster() {
 
   function moveBelow(node, siblingNode) {
     var message = "<h4>move-below</h4>Are you sure you wish to turn <code><strong>" +
-      node.Key.Hostname + ":" + node.Key.Port +
+      escapeHtml(node.Key.Hostname) + ":" + escapeHtml(node.Key.Port) +
       "</strong></code> into a replica of <code><strong>" +
-      siblingNode.Key.Hostname + ":" + siblingNode.Key.Port +
+      escapeHtml(siblingNode.Key.Hostname) + ":" + escapeHtml(siblingNode.Key.Port) +
       "</strong></code>?";
     var apiUrl = "/api/move-below/" + node.Key.Hostname + "/" + node.Key.Port + "/" + siblingNode.Key.Hostname + "/" + siblingNode.Key.Port;
     return executeMoveOperation(message, apiUrl);
@@ -1020,9 +1020,9 @@ function Cluster() {
 
   function moveUp(node, grandparentNode) {
     var message = "<h4>move-up</h4>Are you sure you wish to turn <code><strong>" +
-      node.Key.Hostname + ":" + node.Key.Port +
+      escapeHtml(node.Key.Hostname) + ":" + escapeHtml(node.Key.Port) +
       "</strong></code> into a replica of <code><strong>" +
-      grandparentNode.Key.Hostname + ":" + grandparentNode.Key.Port +
+      escapeHtml(grandparentNode.Key.Hostname) + ":" + escapeHtml(grandparentNode.Key.Port) +
       "</strong></code>?";
     var apiUrl = "/api/move-up/" + node.Key.Hostname + "/" + node.Key.Port;
     return executeMoveOperation(message, apiUrl);
@@ -1030,9 +1030,9 @@ function Cluster() {
 
   function takeMaster(node, masterNode) {
     var message = "<h4>take-master</h4>Are you sure you wish to make <code><strong>" +
-      node.Key.Hostname + ":" + node.Key.Port +
+      escapeHtml(node.Key.Hostname) + ":" + escapeHtml(node.Key.Port) +
       "</strong></code> master of <code><strong>" +
-      masterNode.Key.Hostname + ":" + masterNode.Key.Port +
+      escapeHtml(masterNode.Key.Hostname) + ":" + escapeHtml(masterNode.Key.Port) +
       "</strong></code>?";
     var apiUrl = "/api/take-master/" + node.Key.Hostname + "/" + node.Key.Port;
     return executeMoveOperation(message, apiUrl);
@@ -1040,9 +1040,9 @@ function Cluster() {
 
   function matchBelow(node, otherNode) {
     var message = "<h4>PSEUDO-GTID MODE, match-below</h4>Are you sure you wish to turn <code><strong>" +
-      node.Key.Hostname + ":" + node.Key.Port +
+      escapeHtml(node.Key.Hostname) + ":" + escapeHtml(node.Key.Port) +
       "</strong></code> into a replica of <code><strong>" +
-      otherNode.Key.Hostname + ":" + otherNode.Key.Port +
+      escapeHtml(otherNode.Key.Hostname) + ":" + escapeHtml(otherNode.Key.Port) +
       "</strong></code>?";
     var apiUrl = "/api/match-below/" + node.Key.Hostname + "/" + node.Key.Port + "/" + otherNode.Key.Hostname + "/" + otherNode.Key.Port;
     return executeMoveOperation(message, apiUrl);
@@ -1050,9 +1050,9 @@ function Cluster() {
 
   function moveBelowGTID(node, otherNode) {
     var message = "<h4>GTID MODE, move-below</h4>Are you sure you wish to turn <code><strong>" +
-      node.Key.Hostname + ":" + node.Key.Port +
+      escapeHtml(node.Key.Hostname) + ":" + escapeHtml(node.Key.Port) +
       "</strong></code> into a replica of <code><strong>" +
-      otherNode.Key.Hostname + ":" + otherNode.Key.Port +
+      escapeHtml(otherNode.Key.Hostname) + ":" + escapeHtml(otherNode.Key.Port) +
       "</strong></code>?";
     var apiUrl = "/api/move-below-gtid/" + node.Key.Hostname + "/" + node.Key.Port + "/" + otherNode.Key.Hostname + "/" + otherNode.Key.Port;
     return executeMoveOperation(message, apiUrl);
@@ -1060,9 +1060,9 @@ function Cluster() {
 
   function moveReplicasGTID(node, otherNode) {
     var message = "<h4>GTID MODE, move-replicas</h4>Are you sure you wish to move replicas of <code><strong>" +
-      node.Key.Hostname + ":" + node.Key.Port +
+      escapeHtml(node.Key.Hostname) + ":" + escapeHtml(node.Key.Port) +
       "</strong></code> below <code><strong>" +
-      otherNode.Key.Hostname + ":" + otherNode.Key.Port +
+      escapeHtml(otherNode.Key.Hostname) + ":" + escapeHtml(otherNode.Key.Port) +
       "</strong></code>?";
     var apiUrl = "/api/move-replicas-gtid/" + node.Key.Hostname + "/" + node.Key.Port + "/" + otherNode.Key.Hostname + "/" + otherNode.Key.Port;
     return executeMoveOperation(message, apiUrl);
@@ -1070,9 +1070,9 @@ function Cluster() {
 
   function makeCoMaster(node, childNode) {
     var message = "<h4>make-co-master</h4>Are you sure you wish to make <code><strong>" +
-      node.Key.Hostname + ":" + node.Key.Port +
+      escapeHtml(node.Key.Hostname) + ":" + escapeHtml(node.Key.Port) +
       "</strong></code> and <code><strong>" +
-      childNode.Key.Hostname + ":" + childNode.Key.Port +
+      escapeHtml(childNode.Key.Hostname) + ":" + escapeHtml(childNode.Key.Port) +
       "</strong></code> co-masters?";
     bootbox.confirm(anonymizeIfNeedBe(message), function(confirm) {
       if (confirm) {
@@ -1086,7 +1086,7 @@ function Cluster() {
 
   function gracefulMasterTakeover(newMasterNode, existingMasterNode) {
     var message = '<h1><span class="glyphicon glyphicon-exclamation-sign text-warning"></span> DANGER ZONE</h1><h4>Graceful-master-takeover</h4>Are you sure you wish to promote <code><strong>' +
-      newMasterNode.Key.Hostname + ':' + newMasterNode.Key.Port +
+      escapeHtml(newMasterNode.Key.Hostname) + ':' + escapeHtml(newMasterNode.Key.Port) +
       '</strong></code> as master?';
     bootbox.confirm(anonymizeIfNeedBe(message), function(confirm) {
       if (confirm) {
@@ -1339,19 +1339,21 @@ function Cluster() {
     } else if (moveInstanceMethod == "pseudo-gtid") {
       $("#move-instance-method-button").removeClass("btn-success").removeClass("btn-primary").removeClass("btn-info").addClass("btn-warning");
     }
-    $("#move-instance-method-button").html(moveInstanceMethod + ' mode <span class="caret"></span>')
+    $("#move-instance-method-button").html(escapeHtml(moveInstanceMethod) + ' mode <span class="caret"></span>')
   }
 
   // This is legacy and will be removed
   function makeMaster(instance) {
-    var message = "Are you sure you wish to make <code><strong>" + instance.Key.Hostname + ":" + instance.Key.Port + "</strong></code> the new master?" + "<p>Siblings of <code><strong>" + instance.Key.Hostname + ":" + instance.Key.Port + "</strong></code> will turn to be its children, " + "via Pseudo-GTID." + "<p>The instance will be set to be writeable (<code><strong>read_only = 0</strong></code>)." + "<p>Replication on this instance will be stopped, but not reset. You should run <code><strong>RESET SLAVE</strong></code> yourself " + "if this instance will indeed become the master." + "<p>Pointing your application servers to the new master is on you.";
+    var instanceTitle = escapeHtml(instance.Key.Hostname) + ":" + escapeHtml(instance.Key.Port);
+    var message = "Are you sure you wish to make <code><strong>" + instanceTitle + "</strong></code> the new master?" + "<p>Siblings of <code><strong>" + instanceTitle + "</strong></code> will turn to be its children, " + "via Pseudo-GTID." + "<p>The instance will be set to be writeable (<code><strong>read_only = 0</strong></code>)." + "<p>Replication on this instance will be stopped, but not reset. You should run <code><strong>RESET SLAVE</strong></code> yourself " + "if this instance will indeed become the master." + "<p>Pointing your application servers to the new master is on you.";
     var apiUrl = "/api/make-master/" + instance.Key.Hostname + "/" + instance.Key.Port;
     return executeMoveOperation(message, apiUrl);
   }
 
   //This is legacy and will be removed
   function makeLocalMaster(instance) {
-    var message = "Are you sure you wish to make <code><strong>" + instance.Key.Hostname + ":" + instance.Key.Port + "</strong></code> a local master?" + "<p>Siblings of <code><strong>" + instance.Key.Hostname + ":" + instance.Key.Port + "</strong></code> will turn to be its children, " + "via Pseudo-GTID." + "<p>The instance will replicate from its grandparent.";
+    var instanceTitle = escapeHtml(instance.Key.Hostname) + ":" + escapeHtml(instance.Key.Port);
+    var message = "Are you sure you wish to make <code><strong>" + instanceTitle + "</strong></code> a local master?" + "<p>Siblings of <code><strong>" + instanceTitle + "</strong></code> will turn to be its children, " + "via Pseudo-GTID." + "<p>The instance will replicate from its grandparent.";
     var apiUrl = "/api/make-local-master/" + instance.Key.Hostname + "/" + instance.Key.Port;
     return executeMoveOperation(message, apiUrl);
   }
@@ -1367,13 +1369,13 @@ function Cluster() {
           getData("/api/set-cluster-alias/" + currentClusterName() + "?alias=" + encodeURIComponent(result), function(operationResult) {
             hideLoader();
             if (operationResult.Code == "ERROR") {
-              addAlert(operationResult.Message)
+              addAlert(escapeHtml(operationResult.Message))
             } else {
               location.reload();
             }
           }).fail(function (operationResult) {
             hideLoader();
-            addAlert(operationResult.responseJSON.Message)
+            addAlert(escapeHtml(operationResult.responseJSON.Message))
           });
         }
       }
@@ -1388,7 +1390,7 @@ function Cluster() {
         instancesTitles.push(instance.title);
       });
       var instancesTitlesConcatenates = instancesTitles.join(" ");
-      bootbox.alert("Heuristic list of OSC controller replicas: <pre>" + instancesTitlesConcatenates + "</pre>");
+      bootbox.alert("Heuristic list of OSC controller replicas: <pre>" + escapeHtml(instancesTitlesConcatenates) + "</pre>");
     });
   }
 
@@ -1403,7 +1405,7 @@ function Cluster() {
     if (hr === true) {
       content = '<hr/>' + content
     }
-    wrappedContent = '<div data-tag="'+tag+'">' + content + '<div style="clear: both;"></div></div>';
+    wrappedContent = '<div data-tag="'+escapeHtml(tag)+'">' + content + '<div style="clear: both;"></div></div>';
     $("#cluster_info").append(wrappedContent)
   }
 
@@ -1418,14 +1420,14 @@ function Cluster() {
       });
     }
     {
-      var content = currentClusterName();
+      var content = escapeHtml(currentClusterName());
       addSidebarInfoPopoverContent(content, "cluster-name", true);
     }
     {
-      var content = 'Alias: ' + clusterInfo.ClusterAlias + '';
+      var content = 'Alias: ' + escapeHtml(clusterInfo.ClusterAlias) + '';
       addSidebarInfoPopoverContent(content, "cluster-alias", true);
     } {
-      var content = 'Domain: ' + clusterInfo.ClusterDomain + '';
+      var content = 'Domain: ' + escapeHtml(clusterInfo.ClusterDomain) + '';
       addSidebarInfoPopoverContent(content, "cluster-domain", true);
     }
 
@@ -1434,7 +1436,7 @@ function Cluster() {
       recoveries = recoveries || []
       recoveries = recoveries.slice(0, maxItems)
       if (recoveries.length > 0) {
-        var content = '<a href="' + appUrl('/web/audit-recovery/alias/' + clusterInfo.ClusterAlias) + '">Recovery history</a>';
+        var content = '<a href="' + appUrl('/web/audit-recovery/alias/' + encodeURIComponent(clusterInfo.ClusterAlias)) + '">Recovery history</a>';
         addSidebarInfoPopoverContent(content, "audit-recovery-title", true);
       }
       recoveries.forEach(function(recovery) {
@@ -1442,7 +1444,7 @@ function Cluster() {
         if (recovery.IsSuccessful === false) {
           glyph = '<span class="glyphicon text-danger glyphicon-remove-sign"></span>';
         }
-        var content = '<a href="/web/audit-recovery/uid/'+recovery.UID+'">' + recovery.RecoveryStartTimestamp + '</a>: ' + glyph + ' ' + recovery.AnalysisEntry.Analysis
+        var content = '<a href="' + appUrl('/web/audit-recovery/uid/'+encodeURIComponent(recovery.UID))+'">' + escapeHtml(recovery.RecoveryStartTimestamp) + '</a>: ' + glyph + ' ' + escapeHtml(recovery.AnalysisEntry.Analysis)
         addSidebarInfoPopoverContent(content, "audit-recovery", true);
       });
     });
@@ -1450,11 +1452,11 @@ function Cluster() {
       failureDetections = failureDetections || []
       failureDetections = failureDetections.slice(0, maxItems)
       if (failureDetections.length > 0) {
-        var content = '<a href="' + appUrl('/web/audit-failure-detection/alias/' + clusterInfo.ClusterAlias) + '">Failure detection</a>';
+        var content = '<a href="' + appUrl('/web/audit-failure-detection/alias/' + encodeURIComponent(clusterInfo.ClusterAlias)) + '">Failure detection</a>';
         addSidebarInfoPopoverContent(content, "audit-detection-title", true);
       }
       failureDetections.forEach(function(failureDetection) {
-        var content = failureDetection.RecoveryStartTimestamp + ': ' + failureDetection.AnalysisEntry.Analysis
+        var content = escapeHtml(failureDetection.RecoveryStartTimestamp) + ': ' + escapeHtml(failureDetection.AnalysisEntry.Analysis)
         addSidebarInfoPopoverContent(content, "audit-detection", true);
       });
     });
@@ -1531,17 +1533,17 @@ function Cluster() {
     } else {
       glyph = '<span class="pull-left glyphicon glyphicon-exclamation-sign '+(hasDowntime ? "text-muted" : "text-danger")+'"></span>';
     }
-    var analysisContent = '<div><strong>' + analysisEntry.Analysis + "</strong></div>";
+    var analysisContent = '<div><strong>' + escapeHtml(analysisEntry.Analysis) + "</strong></div>";
     var extraText = '';
     if  (analysisEntry.IsDowntimed) {
-      extraText = '<i>downtime till ' + analysisEntry.DowntimeEndTimestamp + '</i>';
+      extraText = '<i>downtime till ' + escapeHtml(analysisEntry.DowntimeEndTimestamp) + '</i>';
     } else if (analysisEntry.IsReplicasDowntimed) {
       extraText = '<i>replicas downtimed</i>';
     }
     if (extraText != '') {
       analysisContent += '<div>' + extraText + '</div>';
     }
-    analysisContent += "<div>" + analysisEntry.AnalyzedInstanceKey.Hostname + ":" + analysisEntry.AnalyzedInstanceKey.Port + "</div>";
+    analysisContent += "<div>" + escapeHtml(analysisEntry.AnalyzedInstanceKey.Hostname) + ":" + escapeHtml(analysisEntry.AnalyzedInstanceKey.Port) + "</div>";
     var content = '<div><div class="pull-left">'+glyph+'</div><div class="pull-right">'+analysisContent+'</div></div>';
     addSidebarInfoPopoverContent(content, "analysis", false);
     if (analysisEntry.IsStructureAnalysis) {
@@ -1577,14 +1579,14 @@ function Cluster() {
             return
           }
           recoveryListing.append(
-            '<li><a href="#" data-btn="recover-suggested-successor" data-command="recover-suggested-successor" data-successor-host="' + replica.Key.Hostname + '" data-successor-port="' + replica.Key.Port + '">Recover, try to promote <code>' + replica.title + '</code></a></li>');
+            '<li><a href="#" data-btn="recover-suggested-successor" data-command="recover-suggested-successor" data-successor-host="' + escapeHtml(replica.Key.Hostname) + '" data-successor-port="' + escapeHtml(replica.Key.Port) + '">Recover, try to promote <code>' + escapeHtml(replica.title) + '</code></a></li>');
         });
       }
     }
     if (!instance.isMaster) {
       recoveryListing.append('<li><a href="#" data-btn="auto" data-command="recover-auto">Auto (implies running external hooks/processes)</a></li>');
       recoveryListing.append('<li role="separator" class="divider"></li>');
-      recoveryListing.append('<li><a href="#" data-btn="relocate-replicas" data-command="relocate-replicas" data-successor-host="' + instance.MasterKey.Hostname + '" data-successor-port="' + instance.MasterKey.Port + '">Relocate replicas to <code>' + instance.masterTitle + '</code></a></li>');
+      recoveryListing.append('<li><a href="#" data-btn="relocate-replicas" data-command="relocate-replicas" data-successor-host="' + escapeHtml(instance.MasterKey.Hostname) + '" data-successor-port="' + escapeHtml(instance.MasterKey.Port) + '">Relocate replicas to <code>' + escapeHtml(instance.masterTitle) + '</code></a></li>');
     }
     if (instance.masterNode) {
       // Intermediate master; suggest successor
@@ -1605,7 +1607,7 @@ function Cluster() {
           return
         }
         recoveryListing.append(
-          '<li><a href="#" data-btn="relocate-replicas" data-command="relocate-replicas" data-successor-host="' + sibling.Key.Hostname + '" data-successor-port="' + sibling.Key.Port + '">Relocate replicas to <code>' + sibling.title + '</code></a></li>');
+          '<li><a href="#" data-btn="relocate-replicas" data-command="relocate-replicas" data-successor-host="' + escapeHtml(sibling.Key.Hostname) + '" data-successor-port="' + escapeHtml(sibling.Key.Port) + '">Relocate replicas to <code>' + escapeHtml(sibling.title) + '</code></a></li>');
       });
     }
   }
@@ -1695,7 +1697,7 @@ function Cluster() {
           }
           // Result is an array: either empty (no active recovery) or with multiple entries
           var recoveryEntry = recoveries[0];
-          addInfo('<strong>' + instance.title + '</strong> has just recently (' + recoveryEntry.RecoveryEndTimestamp + ') been promoted as result of <strong>' + recoveryEntry.AnalysisEntry.Analysis + '</strong>. It may still take some time to rebuild topology graph.');
+          addInfo('<strong>' + escapeHtml(instance.title) + '</strong> has just recently (' + escapeHtml(recoveryEntry.RecoveryEndTimestamp) + ') been promoted as result of <strong>' + escapeHtml(recoveryEntry.AnalysisEntry.Analysis) + '</strong>. It may still take some time to rebuild topology graph.');
         });
       }
     });
@@ -1747,9 +1749,9 @@ function Cluster() {
         $("#cluster_subtitle").append(clusterSubtitle)
 
 
-        $("#dropdown-context").append('<li><a data-command="change-cluster-alias" data-alias="' + clusterInfo.ClusterAlias + '">Alias: ' + alias + '</a></li>');
+        $("#dropdown-context").append('<li><a data-command="change-cluster-alias" data-alias="' + escapeHtml(clusterInfo.ClusterAlias) + '">Alias: ' + escapeHtml(alias) + '</a></li>');
       }
-      $("#dropdown-context").append('<li><a href="' + appUrl('/web/cluster-pools/' + currentClusterName()) + '">Pools</a></li>');
+      $("#dropdown-context").append('<li><a href="' + appUrl('/web/cluster-pools/' + encodeURIComponent(currentClusterName())) + '">Pools</a></li>');
       if (isCompactDisplay()) {
         $("#dropdown-context").append('<li><a data-command="expand-display" href="' + location.href.split("?")[0].split("#")[0] + '?compact=false"><span class="glyphicon glyphicon-ok small"></span> Compact display</a></li>');
       } else {
@@ -1777,7 +1779,7 @@ function Cluster() {
     getData("/api/active-cluster-recovery/" + currentClusterName(), function(recoveries) {
       // Result is an array: either empty (no active recovery) or with multiple entries
       recoveries.forEach(function(recoveryEntry) {
-        addInfo('<strong><a href="' + appUrl('/web/audit-recovery/cluster/' + currentClusterName()) + '">' + recoveryEntry.AnalysisEntry.Analysis + ' active recovery in progress</strong></a>. Topology is subject to change in the next moments.');
+        addInfo('<strong><a href="' + appUrl('/web/audit-recovery/cluster/' + encodeURIComponent(currentClusterName())) + '">' + escapeHtml(recoveryEntry.AnalysisEntry.Analysis) + ' active recovery in progress</strong></a>. Topology is subject to change in the next moments.');
       });
     });
     getData("/api/recently-active-cluster-recovery/" + currentClusterName(), function(recoveries) {
@@ -1786,12 +1788,12 @@ function Cluster() {
       }
       // Result is an array: either empty (no active recovery) or with multiple entries
       var recoveryEntry = recoveries[0]
-      addInfo('This cluster just recently (' + recoveryEntry.RecoveryEndTimestamp + ') recovered from <strong><a href="' + appUrl('/web/audit-recovery/cluster/' + currentClusterName()) + '">' + recoveryEntry.AnalysisEntry.Analysis + '</strong></a>. It may still take some time to rebuild topology graph.');
+      addInfo('This cluster just recently (' + escapeHtml(recoveryEntry.RecoveryEndTimestamp) + ') recovered from <strong><a href="' + appUrl('/web/audit-recovery/cluster/' + encodeURIComponent(currentClusterName())) + '">' + escapeHtml(recoveryEntry.AnalysisEntry.Analysis) + '</strong></a>. It may still take some time to rebuild topology graph.');
     });
     getData("/api/blocked-recoveries/cluster/" + currentClusterName(), function(blockedRecoveries) {
       // Result is an array: either empty (no active recovery) or with multiple entries
       blockedRecoveries.forEach(function(blockedRecovery) {
-        addAlert('A <strong>' + blockedRecovery.Analysis + '</strong> on ' + getInstanceTitle(blockedRecovery.FailedInstanceKey.Hostname, blockedRecovery.FailedInstanceKey.Port) + ' is blocked due to a <a href="' + appUrl('/web/audit-recovery/id/' + blockedRecovery.BlockingRecoveryId) + '">previous recovery</a>');
+        addAlert('A <strong>' + escapeHtml(blockedRecovery.Analysis) + '</strong> on ' + escapeHtml(getInstanceTitle(blockedRecovery.FailedInstanceKey.Hostname, blockedRecovery.FailedInstanceKey.Port)) + ' is blocked due to a <a href="' + appUrl('/web/audit-recovery/id/' + encodeURIComponent(blockedRecovery.BlockingRecoveryId)) + '">previous recovery</a>');
       });
     });
 

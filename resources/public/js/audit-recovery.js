@@ -19,8 +19,8 @@ $(document).ready(function() {
   function ackInfo(audit) {
     var info = "";
     if (audit.Acknowledged) {
-      info += '<div><span class="text-success">Acknowledged by ' + audit.AcknowledgedBy + ', ' + audit.AcknowledgedAt + '<span><ul>';
-      info += "<li>" + audit.AcknowledgedComment + "</li>";
+      info += '<div><span class="text-success">Acknowledged by ' + escapeHtml(audit.AcknowledgedBy) + ', ' + escapeHtml(audit.AcknowledgedAt) + '<span><ul>';
+      info += "<li>" + escapeHtml(audit.AcknowledgedComment) + "</li>";
       info += '</ul></div>';
     } else {
       info += '<div><button class="btn btn-primary ack-recovery" data-recovery-id="'+audit.Id+'">Acknowledge</button>';
@@ -35,33 +35,33 @@ $(document).ready(function() {
     if (audit.LostReplicas.length > 0) {
       moreInfo += "<div>Lost replicas:<ul>";
       audit.LostReplicas.forEach(function(instanceKey) {
-        moreInfo += "<li><code>" + getInstanceTitle(instanceKey.Hostname, instanceKey.Port) + "</code></li>";
+        moreInfo += "<li><code>" + escapeHtml(getInstanceTitle(instanceKey.Hostname, instanceKey.Port)) + "</code></li>";
       });
       moreInfo += "</ul></div>";
     }
     if (audit.ParticipatingInstanceKeys.length > 0) {
       moreInfo += "<div>Participating instances:<ul>";
       audit.ParticipatingInstanceKeys.forEach(function(instanceKey) {
-        moreInfo += "<li><code>" + getInstanceTitle(instanceKey.Hostname, instanceKey.Port) + "</code></li>";
+        moreInfo += "<li><code>" + escapeHtml(getInstanceTitle(instanceKey.Hostname, instanceKey.Port)) + "</code></li>";
       });
       moreInfo += "</ul></div>";
     }
     if (audit.AnalysisEntry.Replicas.length > 0) {
       moreInfo += '<div>' + audit.AnalysisEntry.CountReplicas + ' replicating hosts :<ul>';
       audit.AnalysisEntry.Replicas.forEach(function(instanceKey) {
-        moreInfo += "<li><code>" + getInstanceTitle(instanceKey.Hostname, instanceKey.Port) + "</code></li>";
+        moreInfo += "<li><code>" + escapeHtml(getInstanceTitle(instanceKey.Hostname, instanceKey.Port)) + "</code></li>";
       });
       moreInfo += "</ul></div>";
     }
     if (audit.AllErrors.length > 0 && audit.AllErrors[0]) {
       moreInfo += "All errors:<ul>";
       audit.AllErrors.forEach(function(err) {
-        moreInfo += "<li>" + err;
+        moreInfo += "<li>" + escapeHtml(err) + "</li>";
       });
       moreInfo += "</ul>";
     }
-    moreInfo += '<div><a href="' + appUrl('/web/audit-failure-detection/id/' + audit.LastDetectionId) + '">Related detection</a></div>';
-    moreInfo += '<div>Processed by <code>' + audit.ProcessingNodeHostname + '</code></div>';
+    moreInfo += '<div><a href="' + appUrl('/web/audit-failure-detection/id/' + encodeURIComponent(audit.LastDetectionId)) + '">Related detection</a></div>';
+    moreInfo += '<div>Processed by <code>' + escapeHtml(audit.ProcessingNodeHostname) + '</code></div>';
     return moreInfo;
   }
   function displaySingleAudit(audit) {
@@ -85,7 +85,7 @@ $(document).ready(function() {
       row.appendTo($("#audit_recovery_details tbody"));
     }
     appendRow("Failed instance", failedInstanceTitle)
-    var successor = getInstanceTitle(audit.SuccessorKey.Hostname, audit.SuccessorKey.Port);
+    var successor = escapeHtml(getInstanceTitle(audit.SuccessorKey.Hostname, audit.SuccessorKey.Port));
     if (audit.IsSuccessful === false) {
       successor = '<span class="text-danger"><span class="glyphicon glyphicon-remove-sign"></span> FAIL '+successor+'</span>';
     } else {
@@ -93,9 +93,9 @@ $(document).ready(function() {
     }
     appendRow("Successor", successor)
     if (clusterAlias != clusterName) {
-      appendRow("Cluster alias", '<a href="/web/cluster/alias/'+clusterAlias+'">' + clusterAlias + '</a>')
+      appendRow("Cluster alias", '<a href="' + appUrl('/web/cluster/alias/' + encodeURIComponent(clusterAlias)) + '">' + escapeHtml(clusterAlias) + '</a>')
     }
-    appendRow("Cluster name", '<a href="/web/cluster/'+clusterName+'">' + clusterName + '</a>')
+    appendRow("Cluster name", '<a href="' + appUrl('/web/cluster/' + encodeURIComponent(clusterName)) + '">' + escapeHtml(clusterName) + '</a>')
     appendRow("Affected replicas", audit.AnalysisEntry.CountReplicas)
     appendRow("Start time", audit.RecoveryStartTimestamp)
     appendRow("End time", audit.RecoveryEndTimestamp)
@@ -143,22 +143,22 @@ $(document).ready(function() {
       }
 
     $('<td/>', {
-        html: '<a href="' + appUrl('/web/audit-recovery/uid/' + audit.UID) + '">'+audit.AnalysisEntry.Analysis+'</a>'
+        html: '<a href="' + appUrl('/web/audit-recovery/uid/' + encodeURIComponent(audit.UID)) + '">'+escapeHtml(audit.AnalysisEntry.Analysis)+'</a>'
       }).prepend(ack).appendTo(row);
       $('<a/>', {
         text: analyzedInstanceDisplay,
-        href: appUrl("/web/search/" + analyzedInstanceDisplay)
+        href: appUrl("/web/search/" + encodeURIComponent(analyzedInstanceDisplay))
       }).wrap($("<td/>")).parent().appendTo(row);
       $('<td/>', {
         text: audit.AnalysisEntry.CountReplicas
       }).appendTo(row);
       $('<a/>', {
         text: audit.AnalysisEntry.ClusterDetails.ClusterName,
-        href: appUrl("/web/cluster/" + audit.AnalysisEntry.ClusterDetails.ClusterName)
+        href: appUrl("/web/cluster/" + encodeURIComponent(audit.AnalysisEntry.ClusterDetails.ClusterName))
       }).wrap($("<td/>")).parent().appendTo(row);
       $('<a/>', {
         text: audit.AnalysisEntry.ClusterDetails.ClusterAlias,
-        href: appUrl("/web/cluster/alias/" + audit.AnalysisEntry.ClusterDetails.ClusterAlias)
+        href: appUrl("/web/cluster/alias/" + encodeURIComponent(audit.AnalysisEntry.ClusterDetails.ClusterAlias))
       }).wrap($("<td/>")).parent().appendTo(row);
       $('<td/>', {
         text: audit.RecoveryStartTimestamp
@@ -173,7 +173,7 @@ $(document).ready(function() {
       } else if (audit.SuccessorKey.Hostname) {
         $('<a/>', {
           text: sucessorInstanceDisplay,
-          href: appUrl("/web/search/" + sucessorInstanceDisplay)
+          href: appUrl("/web/search/" + encodeURIComponent(sucessorInstanceDisplay))
         }).wrap($("<td/>")).parent().appendTo(row);
       } else {
         $('<td/>', {
