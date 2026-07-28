@@ -188,7 +188,12 @@ func normalizeRaftHostnameIP(host string) (string, error) {
 	}
 	// resolve success!
 	for _, ip := range ips {
-		return ip.String(), nil
+		addr := net.ParseIP(ip.String())
+		if addr != nil && addr.To4() == nil {
+			return fmt.Sprintf("[%s]", ip.String()), nil
+		} else {
+			return ip.String(), nil
+		}
 	}
 	return host, fmt.Errorf("%+v resolved but no IP found", host)
 }
