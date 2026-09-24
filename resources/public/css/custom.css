@@ -1,0 +1,10 @@
+@keyframes recovering-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+.recovering-indicator {
+  font-weight: bold;
+  animation: recovering-blink 1s step-end infinite;
+}

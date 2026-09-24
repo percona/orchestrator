@@ -8,7 +8,9 @@ $(document).ready(function() {
           problemInstances = [];
         }
         normalizeInstances(problemInstances, []);
-        displayClusters(clusters, replicationAnalysis, problemInstances);
+        $.get(appUrl("/api/all-active-recoveries"), function(activeRecoveries) {
+          displayClusters(clusters, replicationAnalysis, problemInstances, activeRecoveries || []);
+        }, "json");
       }, "json");
     }, "json");
   }, "json");
@@ -29,10 +31,16 @@ $(document).ready(function() {
     return cluster1.ClusterAlias.localeCompare(cluster2.ClusterAlias);
   }
 
-  function displayClusters(clusters, replicationAnalysis, problemInstances) {
+  function displayClusters(clusters, replicationAnalysis, problemInstances, activeRecoveries) {
     hideLoader();
 
     clusters = clusters || [];
+    activeRecoveries = activeRecoveries || [];
+
+    var clustersWithActiveRecovery = {};
+    activeRecoveries.forEach(function(recoveryEntry) {
+      clustersWithActiveRecovery[recoveryEntry.AnalysisEntry.ClusterDetails.ClusterName] = true;
+    });
 
     var dashboardSort = $.cookie("dashboard-sort") || "count"
 
@@ -155,6 +163,10 @@ $(document).ready(function() {
           popoverElement.find("h3 .pull-left").prepend('<span class="glyphicon glyphicon-exclamation-sign text-danger"' + ' title="' + escapeHtml(dangerMsg) + '"></span>');          
         }
       }
+      if (clustersWithActiveRecovery[cluster.ClusterName]) {
+        popoverElement.find("h3 .pull-left").append(' <span class="text-danger recovering-indicator" title="A recovery is currently in progress for this cluster">Recovering...</span>');
+      }
+
       popoverElement.find("h3 .pull-right").append('<a href="' + compactClusterUri + '"><span class="glyphicon glyphicon-compressed" title="Compact display"></span></a>');
       if (cluster.HasAutomatedIntermediateMasterRecovery === true) {
         popoverElement.find("h3 .pull-right").prepend('<span class="glyphicon glyphicon-heart-empty text-info" title="Automated intermediate master recovery for this cluster ENABLED"></span>');

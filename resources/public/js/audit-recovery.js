@@ -1,11 +1,12 @@
 $(document).ready(function() {
   $("#audit_recovery_steps").hide();
   showLoader();
-  var apiUri = "/api/audit-recovery/" + currentPage();
+  var activeOnlyQuery = activeOnly() ? "?activeOnly=true" : "";
+  var apiUri = "/api/audit-recovery/" + currentPage() + activeOnlyQuery;
   if (clusterName()) {
-    apiUri = "/api/audit-recovery/cluster/" + clusterName() + "/" + currentPage();
+    apiUri = "/api/audit-recovery/cluster/" + clusterName() + "/" + currentPage() + activeOnlyQuery;
   } else if (clusterAlias()) {
-    apiUri = "/api/audit-recovery/alias/" + clusterAlias() + "/" + currentPage();;
+    apiUri = "/api/audit-recovery/alias/" + clusterAlias() + "/" + currentPage() + activeOnlyQuery;
   } else if (recoveryId() > 0) {
     apiUri = "/api/audit-recovery/id/" + recoveryId();
   } else if (recoveryUid()) {
@@ -85,11 +86,16 @@ $(document).ready(function() {
       row.appendTo($("#audit_recovery_details tbody"));
     }
     appendRow("Failed instance", failedInstanceTitle)
-    var successor = escapeHtml(getInstanceTitle(audit.SuccessorKey.Hostname, audit.SuccessorKey.Port));
-    if (audit.IsSuccessful === false) {
-      successor = '<span class="text-danger"><span class="glyphicon glyphicon-remove-sign"></span> FAIL '+successor+'</span>';
+    var successor;
+    // Newly registered recovery rows default IsSuccessful to false before the
+    // recovery has even run, so an empty RecoveryEndTimestamp (still ongoing)
+    // must be checked first, or an in-progress recovery is falsely shown as FAIL.
+    if (!audit.RecoveryEndTimestamp) {
+      successor = '<span class="text-muted"><span class="glyphicon glyphicon-hourglass"></span> pending</span>';
+    } else if (audit.IsSuccessful === false) {
+      successor = '<span class="text-danger"><span class="glyphicon glyphicon-remove-sign"></span> FAIL '+escapeHtml(getInstanceTitle(audit.SuccessorKey.Hostname, audit.SuccessorKey.Port))+'</span>';
     } else {
-      successor = '<span class="text-success"><span class="glyphicon glyphicon-ok-sign"></span> '+successor+'</span>';
+      successor = '<span class="text-success"><span class="glyphicon glyphicon-ok-sign"></span> '+escapeHtml(getInstanceTitle(audit.SuccessorKey.Hostname, audit.SuccessorKey.Port))+'</span>';
     }
     appendRow("Successor", successor)
     if (clusterAlias != clusterName) {
@@ -202,10 +208,10 @@ $(document).ready(function() {
       $("#audit .pager .next").addClass("disabled");
     }
     $("#audit .pager .previous").not(".disabled").find("a").click(function() {
-      window.location.href = baseWebUri + (currentPage() - 1);
+      window.location.href = baseWebUri + (currentPage() - 1) + activeOnlyQuery;
     });
     $("#audit .pager .next").not(".disabled").find("a").click(function() {
-      window.location.href = baseWebUri + (currentPage() + 1);
+      window.location.href = baseWebUri + (currentPage() + 1) + activeOnlyQuery;
     });
     $("#audit .pager .disabled a").click(function() {
       return false;

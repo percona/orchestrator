@@ -585,7 +585,8 @@ func readRecoveries(whereCondition string, limit string, args []interface{}) ([]
 	return res, log.Errore(err)
 }
 
-// ReadActiveRecoveries reads active recovery entry/audit entries from topology_recovery
+// ReadActiveClusterRecovery reads recoveries that are still ongoing.
+// We assume these ones that hasn't finished (end_recovery is null) and are active
 func ReadActiveClusterRecovery(clusterName string) ([]*TopologyRecovery, error) {
 	whereClause := `
 		where
@@ -665,12 +666,16 @@ func ReadRecoveryByUID(recoveryUID string) ([]*TopologyRecovery, error) {
 }
 
 // ReadCRecoveries reads latest recovery entries from topology_recovery
-func ReadRecentRecoveries(clusterName string, clusterAlias string, unacknowledgedOnly bool, page int) ([]*TopologyRecovery, error) {
+func ReadRecentRecoveries(clusterName string, clusterAlias string, unacknowledgedOnly bool, activeOnly bool, page int) ([]*TopologyRecovery, error) {
 	whereConditions := []string{}
 	whereClause := ""
 	args := sqlutils.Args()
 	if unacknowledgedOnly {
 		whereConditions = append(whereConditions, `acknowledged=0`)
+	}
+	if activeOnly {
+		// "active" means the recovery function has not yet completed (end_recovery is not set).
+		whereConditions = append(whereConditions, `in_active_period=1 and end_recovery is null`)
 	}
 	if clusterName != "" {
 		whereConditions = append(whereConditions, `cluster_name=?`)

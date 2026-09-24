@@ -13,18 +13,19 @@ function Cluster() {
 
   var _instances, _replicationAnalysis, _maintenanceList, _instancesMap, _isDraggingTrailer = false;
   var _countDragOver = 0;
+  var _clusterHasActiveRecovery = false;
 
   var _instanceCommands = {
     "recover-auto": function(e) {
-      apiCommand("/api/recover/" + _instancesMap[e.draggedNodeId].Key.Hostname + "/" + _instancesMap[e.draggedNodeId].Key.Port);
+      apiCommandAndReloadNow("/api/recover/" + _instancesMap[e.draggedNodeId].Key.Hostname + "/" + _instancesMap[e.draggedNodeId].Key.Port);
       return true;
     },
     "recover-auto-lite": function(e) {
-      apiCommand("/api/recover-lite/" + _instancesMap[e.draggedNodeId].Key.Hostname + "/" + _instancesMap[e.draggedNodeId].Key.Port);
+      apiCommandAndReloadNow("/api/recover-lite/" + _instancesMap[e.draggedNodeId].Key.Hostname + "/" + _instancesMap[e.draggedNodeId].Key.Port);
       return true;
     },
     "force-master-failover": function(e) {
-      apiCommand("/api/force-master-failover/" + _instancesMap[e.draggedNodeId].Key.Hostname + "/" + _instancesMap[e.draggedNodeId].Key.Port);
+      apiCommandAndReloadNow("/api/force-master-failover/" + _instancesMap[e.draggedNodeId].Key.Hostname + "/" + _instancesMap[e.draggedNodeId].Key.Port);
       return true;
     },
     "recover-suggested-successor": function(e) {
@@ -35,7 +36,7 @@ function Cluster() {
         addAlert("Unable to perform requested action, failed to get Destination HOST or PORT data.");
         return false;
       }
-      apiCommand("/api/recover/" + _instancesMap[e.draggedNodeId].Key.Hostname + "/" + _instancesMap[e.draggedNodeId].Key.Port + "/" + suggestedSuccessorHost + "/" + suggestedSuccessorPort);
+      apiCommandAndReloadNow("/api/recover/" + _instancesMap[e.draggedNodeId].Key.Hostname + "/" + _instancesMap[e.draggedNodeId].Key.Port + "/" + suggestedSuccessorHost + "/" + suggestedSuccessorPort);
       return true;
     },
     "relocate-replicas": function(e) {
@@ -1668,6 +1669,26 @@ function Cluster() {
     }
   }
 
+  // applyClusterRecoveringState reflects _clusterHasActiveRecovery in the DOM:
+  // toggles the "Recovering..." indicator and disables the per-instance
+  // "Recover" dropdown buttons so a second recovery can't be kicked off while
+  // one is already in progress. Called both when the active-recovery check
+  // returns, and after instance divs are (re)rendered, since either can
+  // happen first.
+  function applyClusterRecoveringState() {
+    if (_clusterHasActiveRecovery) {
+      $("#cluster_recovering_indicator").show();
+    } else {
+      $("#cluster_recovering_indicator").hide();
+    }
+    var recoverButtons = $("button[id^='recover_dropdown_'], #node_modal button[data-btn='recover']");
+    if (_clusterHasActiveRecovery) {
+      recoverButtons.prop("disabled", true).attr("title", "A recovery is already in progress for this cluster");
+    } else {
+      recoverButtons.prop("disabled", false).removeAttr("title");
+    }
+  }
+
   function main() {
     $(domReady);
   }
@@ -1688,6 +1709,10 @@ function Cluster() {
     //prepareDraggable();
 
     reviewReplicationAnalysis(replicationAnalysis);
+    // reviewReplicationAnalysis() is what actually creates the per-instance
+    // "Recover" dropdown buttons (via onAnalysisEntry()), so this must run
+    // after it, not right after wireInstanceCommands().
+    applyClusterRecoveringState();
 
     instances.forEach(function(instance) {
       if (instance.isMaster) {
@@ -1778,8 +1803,10 @@ function Cluster() {
 
     getData("/api/active-cluster-recovery/" + currentClusterName(), function(recoveries) {
       // Result is an array: either empty (no active recovery) or with multiple entries
+      _clusterHasActiveRecovery = !!(recoveries && recoveries.length > 0);
+      applyClusterRecoveringState();
       recoveries.forEach(function(recoveryEntry) {
-        addInfo('<strong><a href="' + appUrl('/web/audit-recovery/cluster/' + encodeURIComponent(currentClusterName())) + '">' + escapeHtml(recoveryEntry.AnalysisEntry.Analysis) + ' active recovery in progress</strong></a>. Topology is subject to change in the next moments.');
+        addInfo('<strong><a href="' + appUrl('/web/audit-recovery/cluster/' + encodeURIComponent(currentClusterName()) + '?activeOnly=true') + '">' + escapeHtml(recoveryEntry.AnalysisEntry.Analysis) + ' active recovery in progress</strong></a>. Topology is subject to change in the next moments.');
       });
     });
     getData("/api/recently-active-cluster-recovery/" + currentClusterName(), function(recoveries) {

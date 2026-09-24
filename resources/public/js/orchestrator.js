@@ -193,6 +193,47 @@ function apiCommand(uri, hint) {
   return false;
 }
 
+// Outright rejections (unauthorized, validation, "recovery not attempted")
+// come back near-instantly. A real recovery attempt can run for a long
+// time. This is how long apiCommandAndReloadNow() waits for a response
+// before assuming the request was accepted and is genuinely in progress.
+var RECOVERY_ACK_TIMEOUT_MS = 3000;
+
+// apiCommandAndReloadNow is like apiCommand(), but for actions (e.g. recoveries)
+// that run synchronously on the server and can take a long time to complete.
+// Waiting for the response before reloading (as apiCommand() does) would only
+// reflect the "in progress" state after it's already over. Instead, this
+// waits only up to RECOVERY_ACK_TIMEOUT_MS: a fast response (error or
+// success) is reported as-is, same as apiCommand(); otherwise the request
+// has clearly been accepted by the server and is still running, so we
+// reload without waiting for it to finish (it keeps running server-side
+// regardless of this page navigating away).
+function apiCommandAndReloadNow(uri, hint) {
+  showLoader();
+  var settled = false;
+
+  $.get(appUrl(uri), function(operationResult) {
+    settled = true;
+    hideLoader();
+    reloadWithOperationResult(operationResult, hint);
+  }, "json").fail(function(jqXHR) {
+    settled = true;
+    hideLoader();
+    var message = (jqXHR.responseJSON && jqXHR.responseJSON.Message) || "Request failed";
+    addAlert(escapeHtml(message));
+  });
+
+  setTimeout(function() {
+    if (settled) {
+      return;
+    }
+    hideLoader();
+    reloadWithMessage("Recovery initiated", null, hint);
+  }, RECOVERY_ACK_TIMEOUT_MS);
+
+  return false;
+}
+
 function reloadWithMessage(msg, details, hint) {
   msg = msg || '';
   var hostname = "";

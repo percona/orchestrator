@@ -1,0 +1,4 @@
+{
+  "RecoverMasterClusterFilters": [],
+  "PreFailoverProcesses": ["sleep 10"]
+}
