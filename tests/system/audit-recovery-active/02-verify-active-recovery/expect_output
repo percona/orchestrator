@@ -1,0 +1,4 @@
+recovery_seen_while_ongoing=true
+recovery_is_successful=true
+recovery_end_time_present=true
+recovery_absent_after_completion=true

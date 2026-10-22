@@ -3466,7 +3466,8 @@ func (this *HttpAPI) ReadReplicationAnalysisChangelog(params martini.Params, r r
 	r.JSON(http.StatusOK, changelogs)
 }
 
-// AuditRecovery provides list of topology-recovery entries
+// AuditRecovery provides list of topology-recovery entries. Pass ?activeOnly=true to apply
+// the "ongoing" filter in the SQL query (see ReadRecentRecoveries).
 func (this *HttpAPI) AuditRecovery(params martini.Params, r render.Render, req *http.Request) {
 	var audits []*logic.TopologyRecovery
 	var err error
@@ -3481,10 +3482,24 @@ func (this *HttpAPI) AuditRecovery(params martini.Params, r render.Render, req *
 			page = 0
 		}
 		unacknowledgedOnly := (req.URL.Query().Get("unacknowledged") == "true")
+		activeOnly := (req.URL.Query().Get("activeOnly") == "true")
 
-		audits, err = logic.ReadRecentRecoveries(params["clusterName"], params["clusterAlias"], unacknowledgedOnly, page)
+		audits, err = logic.ReadRecentRecoveries(params["clusterName"], params["clusterAlias"], unacknowledgedOnly, activeOnly, page)
 	}
 
+	if err != nil {
+		Respond(r, &APIResponse{Code: ERROR, Message: fmt.Sprintf("%+v", err)})
+		return
+	}
+
+	r.JSON(http.StatusOK, audits)
+}
+
+// AllActiveRecoveries provides the unpaged list of all currently ongoing topology-recovery
+// entries, across all clusters. Used by the dashboard, which needs to know about every
+// ongoing recovery regardless of how many there are, unlike AuditRecovery's paged view.
+func (this *HttpAPI) AllActiveRecoveries(params martini.Params, r render.Render, req *http.Request) {
+	audits, err := logic.ReadActiveRecoveries()
 	if err != nil {
 		Respond(r, &APIResponse{Code: ERROR, Message: fmt.Sprintf("%+v", err)})
 		return
@@ -3989,6 +4004,7 @@ func (this *HttpAPI) RegisterRequests(m *martini.ClassicMartini) {
 	this.registerAPIRequest(m, "audit-recovery/alias/:clusterAlias", this.AuditRecovery)
 	this.registerAPIRequest(m, "audit-recovery/alias/:clusterAlias/:page", this.AuditRecovery)
 	this.registerAPIRequest(m, "audit-recovery-steps/:uid", this.AuditRecoverySteps)
+	this.registerAPIRequest(m, "all-active-recoveries", this.AllActiveRecoveries)
 	this.registerAPIRequest(m, "active-cluster-recovery/:clusterName", this.ActiveClusterRecovery)
 	this.registerAPIRequest(m, "recently-active-cluster-recovery/:clusterName", this.RecentlyActiveClusterRecovery)
 	this.registerAPIRequest(m, "recently-active-instance-recovery/:host/:port", this.RecentlyActiveInstanceRecovery)

@@ -216,6 +216,8 @@ func (this *HttpWeb) Audit(params martini.Params, r render.Render, req *http.Req
 	})
 }
 
+// AuditRecovery renders the recovery audit page. Pass ?activeOnly=true to show only
+// recoveries that are still ongoing (see ReadRecentRecoveries's activeOnly parameter).
 func (this *HttpWeb) AuditRecovery(params martini.Params, r render.Render, req *http.Request, user auth.User) {
 	page, err := strconv.Atoi(params["page"])
 	if err != nil {
@@ -227,11 +229,17 @@ func (this *HttpWeb) AuditRecovery(params martini.Params, r render.Render, req *
 	}
 	recoveryUid := params["uid"]
 	clusterAlias := params["clusterAlias"]
+	activeOnly := (req.URL.Query().Get("activeOnly") == "true")
+
+	title := "audit-recovery"
+	if activeOnly {
+		title = "audit-recovery-active"
+	}
 
 	clusterName, _ := figureClusterName(params["clusterName"])
 	r.HTML(200, "templates/audit_recovery", map[string]interface{}{
 		"agentsHttpActive":    config.Config.ServeAgentsHttp,
-		"title":               "audit-recovery",
+		"title":               title,
 		"authorizedForAction": isAuthorizedForAction(req, user),
 		"userId":              getUserId(req, user),
 		"autoshow_problems":   false,
@@ -240,6 +248,7 @@ func (this *HttpWeb) AuditRecovery(params martini.Params, r render.Render, req *
 		"clusterAlias":        clusterAlias,
 		"recoveryId":          recoveryId,
 		"recoveryUid":         recoveryUid,
+		"activeOnly":          activeOnly,
 		"prefix":              this.URLPrefix,
 		"webMessage":          config.Config.WebMessage,
 	})
