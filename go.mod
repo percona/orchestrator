@@ -1,6 +1,6 @@
 module github.com/openark/orchestrator
 
-go 1.26.10
+go 1.26.11
 
 require (
 	github.com/Showmax/go-fqdn v1.0.0
