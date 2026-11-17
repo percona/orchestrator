@@ -1,0 +1,75 @@
+#!/bin/bash
+
+set -e
+
+api="http://127.0.0.1:3000/api"
+
+# config.json injects a slow PostGracefulTakeoverProcesses hook, which touches a marker file first.
+# GracefulMasterTakeover runs it after the recovery function has returned (and after it has
+# repointed the demoted master), so this test checks that the takeover is still listed as active
+# while that hook runs, under the old cluster name as well as under the new one (named after the
+# promoted master), and that it is gone once the hook has finished.
+# config.json also raises RecoveryPeriodBlockSeconds (5 in the CI config): once the active period
+# expires, a recovery is no longer listed as active, whether or not its hooks are still running.
+
+old_cluster="127.0.0.1:10111"
+new_cluster="127.0.0.1:10112"
+post_graceful_takeover_marker=/tmp/audit-recovery-active-graceful-takeover.post-graceful-takeover
+takeover_log=/tmp/audit-recovery-active-graceful-takeover.log
+
+baseline_id=$(curl -s "$api/audit-recovery/alias/ci" | jq -r 'if length > 0 then .[0].Id else 0 end')
+
+wait_for_file() {
+  for i in $(seq 1 100) ; do
+    if [ -f "$1" ] ; then
+      return 0
+    fi
+    sleep 0.3
+  done
+  return 1
+}
+
+listed_in() {
+  curl -s "$1" | jq --argjson id "$2" '[.[] | select(.Id == $id)] | length > 0'
+}
+
+curl -s "$api/graceful-master-takeover/127.0.0.1/10111/127.0.0.1/10112" > "$takeover_log" 2>&1 &
+takeover_pid=$!
+
+if wait_for_file "$post_graceful_takeover_marker" ; then
+  entry=$(curl -s "$api/audit-recovery/alias/ci?activeOnly=true" | jq -c --argjson baseline "$baseline_id" \
+    '[.[] | select(.Id > $baseline)] | .[0] // empty')
+  if [ -n "$entry" ] ; then
+    id=$(echo "$entry" | jq -r '.Id')
+    echo "post_graceful_takeover_hooks_listed_active=true"
+    echo "post_graceful_takeover_hooks_is_successful=$(echo "$entry" | jq -r '.IsSuccessful')"
+    echo "post_graceful_takeover_hooks_end_time_set=$(echo "$entry" | jq -r '.RecoveryEndTimestamp != ""')"
+    echo "post_graceful_takeover_hooks_post_processing_pending=$(echo "$entry" | jq -r '.PostProcessingPending')"
+    echo "post_graceful_takeover_hooks_listed_under_old_cluster_name=$(listed_in "$api/active-cluster-recovery/$old_cluster" "$id")"
+    echo "post_graceful_takeover_hooks_listed_under_new_cluster_name=$(listed_in "$api/active-cluster-recovery/$new_cluster" "$id")"
+    echo "post_graceful_takeover_hooks_listed_in_all_active_recoveries=$(listed_in "$api/all-active-recoveries" "$id")"
+  else
+    echo "post_graceful_takeover_hooks_listed_active=false"
+  fi
+else
+  echo "post_graceful_takeover_hooks_started=false"
+fi
+
+wait "$takeover_pid"
+takeover_code=$(jq -r '.Code // empty' "$takeover_log" 2>/dev/null)
+if [ "$takeover_code" != "OK" ] ; then
+  echo "graceful-master-takeover API call did not succeed:" >&2
+  cat "$takeover_log" >&2
+  exit 1
+fi
+
+recovery_id=$(curl -s "$api/audit-recovery/alias/ci" | jq -r '.[0].Id')
+still_active=$(listed_in "$api/all-active-recoveries" "$recovery_id")
+pending_after=$(curl -s "$api/audit-recovery/id/$recovery_id" | jq -r '.[0].PostProcessingPending')
+
+if [ "$still_active" == "false" ] ; then
+  echo "recovery_absent_after_completion=true"
+else
+  echo "recovery_absent_after_completion=false"
+fi
+echo "post_processing_pending_after_completion=$pending_after"

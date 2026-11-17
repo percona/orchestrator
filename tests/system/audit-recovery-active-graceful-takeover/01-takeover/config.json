@@ -1,0 +1,4 @@
+{
+  "RecoveryPeriodBlockSeconds": 120,
+  "PostGracefulTakeoverProcesses": ["touch /tmp/audit-recovery-active-graceful-takeover.post-graceful-takeover && sleep 10"]
+}

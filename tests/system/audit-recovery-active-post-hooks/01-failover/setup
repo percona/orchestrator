@@ -1,0 +1,9 @@
+#!/bin/bash
+
+set -e
+
+# Markers touched by the hooks configured in config.json; see 02-verify-active-during-post-hooks/run
+rm -f /tmp/audit-recovery-active-post-hooks.post-master-failover /tmp/audit-recovery-active-post-hooks.post-failover /tmp/audit-recovery-active-post-hooks.async-done
+
+mysqladmin -uci -pci -h 127.0.0.1 --port=10111 shutdown
+sleep 20

@@ -100,6 +100,8 @@ type ReplicationAnalysisHints struct {
 	AuditAnalysis    bool
 }
 
+// A recovery with GracefulMasterTakeoverCommandHint is not marked as finished (post-processing
+// ended) by logic.executeCheckAndRecoverFunction; its caller has to do it, see logic.GracefulMasterTakeover.
 const (
 	ForceMasterFailoverCommandHint    string = "force-master-failover"
 	ForceMasterTakeoverCommandHint    string = "force-master-takeover"

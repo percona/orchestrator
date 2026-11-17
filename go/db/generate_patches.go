@@ -617,4 +617,9 @@ var generateSQLPatches = []string{
 		database_instance
 			ADD COLUMN replication_group_primary_port smallint(5) unsigned NOT NULL DEFAULT 0 AFTER replication_group_primary_host
 	`,
+	`
+		ALTER TABLE
+			topology_recovery
+			ADD COLUMN post_processing_pending TINYINT UNSIGNED NOT NULL DEFAULT 0
+	`,
 }
