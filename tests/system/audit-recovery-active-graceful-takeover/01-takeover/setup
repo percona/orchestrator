@@ -1,0 +1,6 @@
+#!/bin/bash
+
+set -e
+
+# Marker touched by the hook configured in config.json; see run
+rm -f /tmp/audit-recovery-active-graceful-takeover.post-graceful-takeover

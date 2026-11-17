@@ -1,0 +1,12 @@
+{
+  "RecoverMasterClusterFilters": [],
+  "RecoveryPeriodBlockSeconds": 120,
+  "PreFailoverProcesses": [],
+  "PostMasterFailoverProcesses": [
+    "touch /tmp/audit-recovery-active-post-hooks.post-master-failover && sleep 8"
+  ],
+  "PostFailoverProcesses": [
+    "touch /tmp/audit-recovery-active-post-hooks.post-failover && sleep 8",
+    "sleep 8 && touch /tmp/audit-recovery-active-post-hooks.async-done &"
+  ]
+}

@@ -3498,6 +3498,9 @@ func (this *HttpAPI) AuditRecovery(params martini.Params, r render.Render, req *
 // AllActiveRecoveries provides the unpaged list of all currently ongoing topology-recovery
 // entries, across all clusters. Used by the dashboard, which needs to know about every
 // ongoing recovery regardless of how many there are, unlike AuditRecovery's paged view.
+// A recovery is listed until its post-failover hooks have finished, not just until the promotion
+// (see logic.ReadActiveRecoveries). A hook that polls this endpoint waiting for "no active
+// recovery" would therefore see its own recovery.
 func (this *HttpAPI) AllActiveRecoveries(params martini.Params, r render.Render, req *http.Request) {
 	audits, err := logic.ReadActiveRecoveries()
 	if err != nil {
@@ -3508,7 +3511,9 @@ func (this *HttpAPI) AllActiveRecoveries(params martini.Params, r render.Render,
 	r.JSON(http.StatusOK, audits)
 }
 
-// ActiveClusterRecovery returns recoveries in-progress for a given cluster
+// ActiveClusterRecovery returns recoveries in-progress for a given cluster, by its name either
+// before or after the failover. As with AllActiveRecoveries, a recovery stays listed until its
+// post-failover hooks have finished, so a hook polling this endpoint would see its own recovery.
 func (this *HttpAPI) ActiveClusterRecovery(params martini.Params, r render.Render, req *http.Request) {
 	recoveries, err := logic.ReadActiveClusterRecovery(params["clusterName"])
 

@@ -1806,7 +1806,14 @@ function Cluster() {
       _clusterHasActiveRecovery = !!(recoveries && recoveries.length > 0);
       applyClusterRecoveringState();
       recoveries.forEach(function(recoveryEntry) {
-        addInfo('<strong><a href="' + appUrl('/web/audit-recovery/cluster/' + encodeURIComponent(currentClusterName()) + '?activeOnly=true') + '">' + escapeHtml(recoveryEntry.AnalysisEntry.Analysis) + ' active recovery in progress</strong></a>. Topology is subject to change in the next moments.');
+        var activeRecoveryLink = '<strong><a href="' + appUrl('/web/audit-recovery/cluster/' + encodeURIComponent(currentClusterName()) + '?activeOnly=true') + '">' + escapeHtml(recoveryEntry.AnalysisEntry.Analysis) + ' active recovery in progress</strong></a>';
+        if (recoveryEntry.RecoveryEndTimestamp && recoveryEntry.PostProcessingPending) {
+          // Failed recoveries run hooks too (PostUnsuccessfulFailoverProcesses)
+          var outcome = recoveryEntry.IsSuccessful ? 'promotion done' : 'recovery failed';
+          addInfo(activeRecoveryLink + ': ' + outcome + ', post-recovery hooks still running.');
+        } else {
+          addInfo(activeRecoveryLink + '. Topology is subject to change in the next moments.');
+        }
       });
     });
     getData("/api/recently-active-cluster-recovery/" + currentClusterName(), function(recoveries) {

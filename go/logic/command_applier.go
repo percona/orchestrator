@@ -71,6 +71,8 @@ func (applier *CommandApplier) ApplyCommand(op string, value []byte) interface{}
 		return applier.writeRecoveryStep(value)
 	case "resolve-recovery":
 		return applier.resolveRecovery(value)
+	case "end-recovery-post-processing":
+		return applier.endRecoveryPostProcessing(value)
 	case "disable-global-recoveries":
 		return applier.disableGlobalRecoveries(value)
 	case "enable-global-recoveries":
@@ -240,6 +242,17 @@ func (applier *CommandApplier) resolveRecovery(value []byte) interface{} {
 		return log.Errore(err)
 	}
 	if err := writeResolveRecovery(&topologyRecovery); err != nil {
+		return log.Errore(err)
+	}
+	return nil
+}
+
+func (applier *CommandApplier) endRecoveryPostProcessing(value []byte) interface{} {
+	topologyRecovery := TopologyRecovery{}
+	if err := json.Unmarshal(value, &topologyRecovery); err != nil {
+		return log.Errore(err)
+	}
+	if err := writeEndRecoveryPostProcessing(&topologyRecovery); err != nil {
 		return log.Errore(err)
 	}
 	return nil

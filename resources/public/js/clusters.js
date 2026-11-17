@@ -40,6 +40,11 @@ $(document).ready(function() {
     var clustersWithActiveRecovery = {};
     activeRecoveries.forEach(function(recoveryEntry) {
       clustersWithActiveRecovery[recoveryEntry.AnalysisEntry.ClusterDetails.ClusterName] = true;
+      // After a master failover the cluster is renamed after the promoted master, while the
+      // recovery keeps the old name. Post-failover hooks may still be running at that point.
+      if (recoveryEntry.SuccessorKey && recoveryEntry.SuccessorKey.Hostname) {
+        clustersWithActiveRecovery[recoveryEntry.SuccessorKey.Hostname + ":" + recoveryEntry.SuccessorKey.Port] = true;
+      }
     });
 
     var dashboardSort = $.cookie("dashboard-sort") || "count"

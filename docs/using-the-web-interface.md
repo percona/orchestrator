@@ -101,3 +101,5 @@ The `Audit` page presents with all actions taken via `orchestrator`: replica mov
 (`START SLAVE` and `STOP SLAVE` are currently not audited).
 
 ![Orchestrator screenshot](images/orchestrator-audit-small.png)
+
+The `Audit` → `Active Recovery` page lists the recoveries that are still ongoing, including those whose post-failover hooks are still running. While a cluster has an ongoing recovery, the cluster page shows a "Recovering..." label under the cluster's name and disables its `Recover` buttons, and the dashboard shows a "Recovering..." label on the cluster. See [ongoing recoveries](topology-recovery.md#ongoing-recoveries).

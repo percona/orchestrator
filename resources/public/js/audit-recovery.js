@@ -97,6 +97,9 @@ $(document).ready(function() {
     } else {
       successor = '<span class="text-success"><span class="glyphicon glyphicon-ok-sign"></span> '+escapeHtml(getInstanceTitle(audit.SuccessorKey.Hostname, audit.SuccessorKey.Port))+'</span>';
     }
+    if (audit.RecoveryEndTimestamp && audit.PostProcessingPending && audit.IsActive) {
+      successor += ' <span class="text-muted"><span class="glyphicon glyphicon-hourglass"></span> post-recovery hooks running</span>';
+    }
     appendRow("Successor", successor)
     if (clusterAlias != clusterName) {
       appendRow("Cluster alias", '<a href="' + appUrl('/web/cluster/alias/' + encodeURIComponent(clusterAlias)) + '">' + escapeHtml(clusterAlias) + '</a>')
@@ -172,15 +175,21 @@ $(document).ready(function() {
       $('<td/>', {
         text: audit.RecoveryEndTimestamp
       }).appendTo(row);
+      // The recovery itself has ended (successfully or not), but its post-recovery hooks
+      // (PostFailoverProcesses or PostUnsuccessfulFailoverProcesses etc.) are still running.
+      var hooksRunning = '';
+      if (audit.RecoveryEndTimestamp && audit.PostProcessingPending && audit.IsActive) {
+        hooksRunning = ' <span class="text-muted" title="Post-recovery hooks still running"><span class="glyphicon glyphicon-hourglass"></span> hooks running</span>';
+      }
       if (audit.RecoveryEndTimestamp && !audit.IsSuccessful && !audit.SuccessorKey.Hostname) {
         $('<td/>', {
           text: "FAIL"
-        }).appendTo(row);
+        }).append(hooksRunning).appendTo(row);
       } else if (audit.SuccessorKey.Hostname) {
         $('<a/>', {
           text: sucessorInstanceDisplay,
           href: appUrl("/web/search/" + encodeURIComponent(sucessorInstanceDisplay))
-        }).wrap($("<td/>")).parent().appendTo(row);
+        }).wrap($("<td/>")).parent().append(hooksRunning).appendTo(row);
       } else {
         $('<td/>', {
           text: "pending"

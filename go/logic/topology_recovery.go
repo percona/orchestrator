@@ -24,6 +24,7 @@ import (
 	goos "os"
 	"sort"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -116,6 +117,17 @@ type TopologyRecovery struct {
 	RelatedRecoveryId          int64
 	Type                       RecoveryType
 	RecoveryType               MasterRecoveryType
+
+	// PostProcessingPending is true from registration until orchestrator has finished all
+	// work for this recovery: the post-failover hooks (Post*FailoverProcesses,
+	// PostGracefulTakeoverProcesses) and postponed functions. RecoveryEndTimestamp is set
+	// earlier, right after promotion, so it alone does not mean "nothing is running anymore".
+	PostProcessingPending bool
+
+	// asyncProcesses tracks this recovery's hooks run in the background (commands ending
+	// with "&"), so that its post-processing is not ended before they finish.
+	asyncProcesses        sync.WaitGroup
+	asyncProcessesRunning atomic.Int64
 }
 
 func NewTopologyRecovery(replicationAnalysis inst.ReplicationAnalysis) *TopologyRecovery {
@@ -264,6 +276,63 @@ func resolveRecovery(topologyRecovery *TopologyRecovery, successorInstance *inst
 	}
 }
 
+// runAsyncProcess runs f in the background, tracked in asyncProcesses (see endRecoveryPostProcessing).
+func (this *TopologyRecovery) runAsyncProcess(f func()) {
+	this.asyncProcessesRunning.Add(1)
+	this.asyncProcesses.Add(1)
+	go func() {
+		defer this.asyncProcesses.Done()
+		defer this.asyncProcessesRunning.Add(-1)
+		f()
+	}()
+}
+
+// endRecoveryPostProcessing marks that orchestrator has finished all work for the recovery,
+// including the post-failover hooks that run after resolveRecovery(). Until then the recovery
+// is still listed as active (see activeRecoveryCondition).
+//
+// If some of the recovery's async hooks (commands ending with "&") are still running, the marking
+// is done in the background once they have finished, so the caller does not wait for them. The
+// background part uses only the recovery's UID and does not touch topologyRecovery, which the
+// caller may meanwhile be reading (e.g. JSON-encoding it in an API response).
+// Must be called only after the last hook and postponed function of the recovery have been started.
+//
+// With raft, if this node lost leadership while the hooks were running, publishing fails and the
+// error is only logged. The marker then stays set until the recovery is acknowledged or its active
+// period expires (RecoveryPeriodBlockSeconds); EndCrashedRecoveriesPostProcessing does not clear it,
+// because this node is still alive. resolveRecovery() has the same limitation.
+func endRecoveryPostProcessing(topologyRecovery *TopologyRecovery) error {
+	uid := topologyRecovery.UID
+	if running := topologyRecovery.asyncProcessesRunning.Load(); running > 0 {
+		AuditTopologyRecovery(topologyRecovery, fmt.Sprintf("Waiting for %d async hooks to complete", running))
+		asyncProcesses := &topologyRecovery.asyncProcesses
+		go func() {
+			asyncProcesses.Wait()
+			writeRecoveryPostProcessingEnd(uid, "Async hooks completed")
+		}()
+		return nil
+	}
+	topologyRecovery.PostProcessingPending = false
+	return writeRecoveryPostProcessingEnd(uid, "")
+}
+
+// writeRecoveryPostProcessingEnd clears the post-processing marker of the recovery with the given UID,
+// via raft if enabled, optionally auditing auditMessage first. The DAO and the raft command handler
+// only need the UID, so a UID-only recovery value is used.
+func writeRecoveryPostProcessingEnd(uid string, auditMessage string) error {
+	topologyRecovery := &TopologyRecovery{UID: uid}
+	if auditMessage != "" {
+		AuditTopologyRecovery(topologyRecovery, auditMessage)
+	}
+	var err error
+	if orcraft.IsRaftEnabled() {
+		_, err = orcraft.PublishCommand("end-recovery-post-processing", topologyRecovery)
+	} else {
+		err = writeEndRecoveryPostProcessing(topologyRecovery)
+	}
+	return log.Errore(err)
+}
+
 // prepareCommand replaces agreed-upon placeholders with analysis data
 func prepareCommand(command string, topologyRecovery *TopologyRecovery) (result string, async bool) {
 	analysisEntry := &topologyRecovery.AnalysisEntry
@@ -387,8 +456,10 @@ func executeProcesses(processes []string, description string, topologyRecovery *
 			fullDescription = fmt.Sprintf("%s (async)", fullDescription)
 		}
 		if async {
-			// Ignore errors
-			go executeProcess(command, env, topologyRecovery, fullDescription)
+			// Ignore errors. Tracked, so the recovery stays active until the hook finishes.
+			topologyRecovery.runAsyncProcess(func() {
+				executeProcess(command, env, topologyRecovery, fullDescription)
+			})
 		} else {
 			if cmdErr := executeProcess(command, env, topologyRecovery, fullDescription); cmdErr != nil {
 				if failOnError {
@@ -1432,6 +1503,13 @@ func checkAndRecoverDeadCoMaster(analysisEntry inst.ReplicationAnalysis, candida
 	topologyRecovery.LostReplicas.AddInstances(lostReplicas)
 	if promotedReplica != nil {
 		if config.Config.FailMasterPromotionIfSQLThreadNotUpToDate && !promotedReplica.SQLThreadUpToDate() {
+			// This path returns no recovery, so executeCheckAndRecoverFunction neither waits for its
+			// postponed functions (replica relocations) nor ends its post-processing. Do both here:
+			// otherwise the recovery stays listed as active, or stops being listed while replicas
+			// are still being relocated (see endRecoveryPostProcessing).
+			AuditTopologyRecovery(topologyRecovery, fmt.Sprintf("Waiting for %d postponed functions", topologyRecovery.PostponedFunctionsContainer.Len()))
+			topologyRecovery.Wait()
+			endRecoveryPostProcessing(topologyRecovery)
 			return false, nil, log.Errorf("Promoted replica %+v: sql thread is not up to date (relay logs still unapplied). Aborting promotion", promotedReplica.Key)
 		}
 		// success
@@ -1871,6 +1949,15 @@ func executeCheckAndRecoverFunction(analysisEntry inst.ReplicationAnalysis, cand
 		log.Infof("executeCheckAndRecoverFunction: proceeding with %+v recovery on %+v; isRecoverable?: %+v; skipProcesses: %+v", analysisEntry.Analysis, analysisEntry.AnalyzedInstanceKey, isActionableRecovery, skipProcesses)
 	}
 	recoveryAttempted, topologyRecovery, err = checkAndRecoverFunction(analysisEntry, candidateInstanceKey, forceInstanceRecovery, skipProcesses)
+	// A registered recovery stays "active" until all of its post-processing (the hooks and
+	// postponed functions below) is done; mark it as finished on every return path.
+	// GracefulMasterTakeover has more steps after this function returns (repointing the demoted
+	// master, PostGracefulTakeoverProcesses) and marks the end itself. Any other caller that sets
+	// GracefulMasterTakeoverCommandHint must therefore call endRecoveryPostProcessing() itself,
+	// or the recovery stays listed as active until its active period expires.
+	if topologyRecovery != nil && analysisEntry.CommandHint != inst.GracefulMasterTakeoverCommandHint {
+		defer endRecoveryPostProcessing(topologyRecovery)
+	}
 	if !recoveryAttempted {
 		return recoveryAttempted, topologyRecovery, err
 	}
@@ -2159,6 +2246,8 @@ func GracefulMasterTakeover(clusterName string, designatedKey *inst.InstanceKey,
 
 	replicationCreds, replicationCredentialsError := inst.ReadReplicationCredentials(&designatedInstance.Key)
 
+	// With GracefulMasterTakeoverCommandHint, executeCheckAndRecoverFunction leaves clearing the
+	// recovery's post-processing marker to us; see endRecoveryPostProcessing() below.
 	analysisEntry, err := forceAnalysisEntry(clusterName, inst.DeadMaster, inst.GracefulMasterTakeoverCommandHint, &clusterMaster.Key)
 	if err != nil {
 		return nil, nil, err
@@ -2184,6 +2273,11 @@ func GracefulMasterTakeover(clusterName string, designatedKey *inst.InstanceKey,
 
 	log.Infof("GracefulMasterTakeover: attempting recovery")
 	recoveryAttempted, topologyRecovery, err := ForceExecuteRecovery(analysisEntry, &designatedInstance.Key, false)
+	if topologyRecovery != nil {
+		// executeCheckAndRecoverFunction leaves this to us (see there), so that the takeover is
+		// listed as active until PostGracefulTakeoverProcesses below have finished.
+		defer endRecoveryPostProcessing(topologyRecovery)
+	}
 	if err != nil {
 		log.Errorf("GracefulMasterTakeover: noting an error, and for now proceeding: %+v", err)
 	}

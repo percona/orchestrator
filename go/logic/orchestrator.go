@@ -671,6 +671,7 @@ func ContinuousDiscovery() {
 					go ClearActiveRecoveries()
 					go ExpireBlockedRecoveries()
 					go AcknowledgeCrashedRecoveries()
+					go EndCrashedRecoveriesPostProcessing()
 					go inst.ExpireInstanceAnalysisChangelog()
 
 					go func() {

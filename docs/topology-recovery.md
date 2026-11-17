@@ -221,6 +221,22 @@ Some corresponding command line invocations:
 - `orchestrator-client -c enable-global-recoveries`
 - `orchestrator-client -c check-global-recoveries`
 
+### Ongoing recoveries
+
+A recovery is _active_ (ongoing) from the moment it is registered until `orchestrator` has finished all work on it, the post-failover hooks included (`PostMasterFailoverProcesses`, `PostIntermediateMasterFailoverProcesses`, `PostFailoverProcesses`, `PostUnsuccessfulFailoverProcesses`, `PostGracefulTakeoverProcesses`). This includes async hooks (commands ending with `&`): `orchestrator` does not wait for them, but the recovery stays active until they finish. The promotion, and with it the recovery's end time, comes before these hooks. While they run, the recovery is shown with "hooks running".
+
+A recovery stops being active earlier if it is acknowledged (a manual recovery on the same instance acknowledges it implicitly), or once `RecoveryPeriodBlockSeconds` has passed since it started, even if its hooks are still running. If the `orchestrator` node running the recovery crashes, the recovery stops being active as well. A crash after the promotion does not acknowledge the recovery, so the block period (see below) still applies.
+
+Active recoveries are visible via:
+
+- `/web/audit-recovery?activeOnly=true`: the _Audit_ → _Active Recovery_ page. Also available per cluster (`/web/audit-recovery/cluster/:clusterName?activeOnly=true`) and per alias (`/web/audit-recovery/alias/:clusterAlias?activeOnly=true`).
+- `/api/audit-recovery?activeOnly=true`, likewise with `/cluster/:clusterName` and `/alias/:clusterAlias`.
+- `/api/all-active-recoveries`: all active recoveries across all clusters, not paged.
+- `/api/active-cluster-recovery/:clusterName`: active recoveries of a given cluster.
+- The cluster page shows a "Recovering..." label under the cluster's name and disables the _Recover_ buttons. The dashboard (`/web/clusters`) shows a "Recovering..." label on the cluster.
+
+A master failover renames the cluster after the promoted master, while the recovery keeps the cluster's old name. A cluster's active recoveries are found under both names.
+
 ## Blocking, acknowledgements, anti-flapping
 
 `orchestrator` avoid flapping (cascading failures causing continuous outage and elimination of resources) by introducing a block period, where on any given cluster, `orchestrator` will not kick in automated recovery on an interval smaller than said period, unless cleared to do so by a human.
@@ -286,3 +302,5 @@ Note that manual recovery (e.g. `orchestrator-client -c recover`) overrides down
 - `PostFailoverProcesses`
 - `PostUnsuccessfulFailoverProcesses`
 - `PostGracefulTakeoverProcesses`: executed on planned, graceful master takeover, after the old master is positioned under the newly promoted master.
+
+The recovery stays [active](#ongoing-recoveries) while the hooks run. A hook that polls the active-recovery views or API endpoints, waiting for no recovery to be active, will see its own recovery.

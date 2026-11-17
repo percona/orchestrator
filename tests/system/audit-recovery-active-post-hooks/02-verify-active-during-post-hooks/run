@@ -1,0 +1,114 @@
+#!/bin/bash
+
+set -e
+
+api="http://127.0.0.1:3000/api"
+
+# 01-failover/config.json injects two slow hooks, each touching a marker file first:
+# - PostMasterFailoverProcesses, run by the DeadMaster recovery right after it has been resolved
+#   (end_recovery is set, the replica is promoted),
+# - PostFailoverProcesses, run even later, after the recovery function has returned. Its second
+#   hook is async ("&"): it keeps running after the recover API call has returned.
+# This test checks that during both hooks the recovery is still listed as active, under the old
+# cluster name as well as under the new one (named after the promoted master), that it is still
+# listed while the async hook runs, and that it is gone once all hooks have finished.
+# config.json also raises RecoveryPeriodBlockSeconds (5 in the CI config): once the active period
+# expires, a recovery is no longer listed as active, whether or not its hooks are still running.
+
+old_cluster="127.0.0.1:10111"
+new_cluster="127.0.0.1:10113"
+post_master_failover_marker=/tmp/audit-recovery-active-post-hooks.post-master-failover
+post_failover_marker=/tmp/audit-recovery-active-post-hooks.post-failover
+async_done_marker=/tmp/audit-recovery-active-post-hooks.async-done
+recover_log=/tmp/audit-recovery-active-post-hooks-recover.log
+
+baseline_id=$(curl -s "$api/audit-recovery/alias/ci" | jq -r 'if length > 0 then .[0].Id else 0 end')
+
+wait_for_file() {
+  for i in $(seq 1 100) ; do
+    if [ -f "$1" ] ; then
+      return 0
+    fi
+    sleep 0.3
+  done
+  return 1
+}
+
+listed_in() {
+  curl -s "$1" | jq --argjson id "$2" '[.[] | select(.Id == $id)] | length > 0'
+}
+
+# Prints how the active-recovery views see the new recovery, as "<prefix>_<key>=<value>" lines.
+report_active_state() {
+  local prefix="$1"
+  local entry
+  entry=$(curl -s "$api/audit-recovery/alias/ci?activeOnly=true" | jq -c --argjson baseline "$baseline_id" \
+    '[.[] | select(.Id > $baseline)] | .[0] // empty')
+  if [ -z "$entry" ] ; then
+    echo "${prefix}_listed_active=false"
+    return
+  fi
+  local id
+  id=$(echo "$entry" | jq -r '.Id')
+  echo "${prefix}_listed_active=true"
+  echo "${prefix}_is_successful=$(echo "$entry" | jq -r '.IsSuccessful')"
+  echo "${prefix}_end_time_set=$(echo "$entry" | jq -r '.RecoveryEndTimestamp != ""')"
+  echo "${prefix}_post_processing_pending=$(echo "$entry" | jq -r '.PostProcessingPending')"
+  echo "${prefix}_listed_under_old_cluster_name=$(listed_in "$api/active-cluster-recovery/$old_cluster" "$id")"
+  echo "${prefix}_listed_under_new_cluster_name=$(listed_in "$api/active-cluster-recovery/$new_cluster" "$id")"
+  echo "${prefix}_listed_in_all_active_recoveries=$(listed_in "$api/all-active-recoveries" "$id")"
+}
+
+# Single direct call with a designated successor; see audit-recovery-active/02-verify-active-recovery/run
+# for why orchestrator-client -c recover -d is not used.
+curl -s "$api/recover/127.0.0.1/10111/127.0.0.1/10113" > "$recover_log" 2>&1 &
+recover_pid=$!
+
+if wait_for_file "$post_master_failover_marker" ; then
+  report_active_state "post_master_failover_hooks"
+else
+  echo "post_master_failover_hooks_started=false"
+fi
+if wait_for_file "$post_failover_marker" ; then
+  report_active_state "post_failover_hooks"
+else
+  echo "post_failover_hooks_started=false"
+fi
+
+wait "$recover_pid"
+recover_code=$(jq -r '.Code // empty' "$recover_log" 2>/dev/null)
+if [ "$recover_code" != "OK" ] ; then
+  echo "recover API call did not succeed:" >&2
+  cat "$recover_log" >&2
+  exit 1
+fi
+
+recovery_id=$(curl -s "$api/audit-recovery/alias/ci" | jq -r '.[0].Id')
+
+# The recover API call has returned, but the async hook is still running.
+if [ -f "$async_done_marker" ] ; then
+  echo "async_hook_finished_too_early=true"
+fi
+echo "async_hook_listed_active=$(listed_in "$api/all-active-recoveries" "$recovery_id")"
+
+# Once the async hook has finished, the recovery must disappear shortly after.
+if wait_for_file "$async_done_marker" ; then
+  still_active=true
+  for i in $(seq 1 20) ; do
+    still_active=$(listed_in "$api/all-active-recoveries" "$recovery_id")
+    if [ "$still_active" == "false" ] ; then
+      break
+    fi
+    sleep 0.3
+  done
+else
+  echo "async_hook_finished=false"
+fi
+pending_after=$(curl -s "$api/audit-recovery/id/$recovery_id" | jq -r '.[0].PostProcessingPending')
+
+if [ "$still_active" == "false" ] ; then
+  echo "recovery_absent_after_completion=true"
+else
+  echo "recovery_absent_after_completion=false"
+fi
+echo "post_processing_pending_after_completion=$pending_after"

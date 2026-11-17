@@ -156,6 +156,7 @@ func writeTopologyRecovery(topologyRecovery *TopologyRecovery) (*TopologyRecover
 					cluster_alias,
 					count_affected_slaves,
 					slave_hosts,
+					post_processing_pending,
 					last_detection_id
 				) values (
 					?,
@@ -165,6 +166,7 @@ func writeTopologyRecovery(topologyRecovery *TopologyRecovery) (*TopologyRecover
 					1,
 					NOW(),
 					0,
+					?,
 					?,
 					?,
 					?,
@@ -183,6 +185,9 @@ func writeTopologyRecovery(topologyRecovery *TopologyRecovery) (*TopologyRecover
 		analysisEntry.ClusterDetails.ClusterName,
 		analysisEntry.ClusterDetails.ClusterAlias,
 		analysisEntry.CountReplicas, analysisEntry.Replicas.ToCommaDelimitedList(),
+		// Taken from the struct (not hardcoded) so that a raft follower replaying a
+		// "write-recovery" from an older leader, which never clears it, stores 0.
+		topologyRecovery.PostProcessingPending,
 		analysisEntry.AnalyzedInstanceKey.Hostname, analysisEntry.AnalyzedInstanceKey.Port,
 	)
 	if err != nil {
@@ -237,6 +242,8 @@ func AttemptRecoveryRegistration(analysisEntry *inst.ReplicationAnalysis, failIf
 	}
 
 	topologyRecovery := NewTopologyRecovery(*analysisEntry)
+	// Cleared by endRecoveryPostProcessing() once the post-failover hooks have run.
+	topologyRecovery.PostProcessingPending = true
 
 	topologyRecovery, err := writeTopologyRecovery(topologyRecovery)
 	if err != nil {
@@ -365,6 +372,7 @@ func acknowledgeRecoveries(owner string, comment string, markEndRecovery bool, w
 	if markEndRecovery {
 		additionalSet = `
 				end_recovery=IFNULL(end_recovery, NOW()),
+				post_processing_pending = 0,
 			`
 	}
 	query := fmt.Sprintf(`
@@ -452,6 +460,10 @@ func AcknowledgeInstanceRecoveries(instanceKey *inst.InstanceKey, owner string, 
 
 // AcknowledgeInstanceCompletedRecoveries marks active and COMPLETED recoveries for given instance as acknowledged.
 // This also implied clearing their active period, which in turn enables further recoveries on those topologies
+// A recovery whose post-failover hooks are still running (post_processing_pending = 1) is acknowledged too:
+// its topology changes are done, and an unacknowledged active recovery on the same instance would make
+// registration of the new one fail (unique key on hostname, port, in_active_period,
+// end_active_period_unixtime), so the requested recovery would not run at all.
 func AcknowledgeInstanceCompletedRecoveries(instanceKey *inst.InstanceKey, owner string, comment string) (countAcknowledgedEntries int64, err error) {
 	whereClause := `
 			hostname = ?
@@ -462,6 +474,8 @@ func AcknowledgeInstanceCompletedRecoveries(instanceKey *inst.InstanceKey, owner
 }
 
 // AcknowledgeCrashedRecoveries marks recoveries whose processing nodes has crashed as acknowledged.
+// Recoveries whose node crashed later, while running the post-failover hooks, are handled by
+// EndCrashedRecoveriesPostProcessing instead.
 func AcknowledgeCrashedRecoveries() (countAcknowledgedEntries int64, err error) {
 	whereClause := `
 			in_active_period = 1
@@ -471,6 +485,34 @@ func AcknowledgeCrashedRecoveries() (countAcknowledgedEntries int64, err error) 
 			)
 		`
 	return acknowledgeRecoveries("orchestrator", "detected crashed recovery", true, whereClause, sqlutils.Args())
+}
+
+// EndCrashedRecoveriesPostProcessing clears the post-processing marker of recoveries whose processing
+// node crashed after the recovery had been resolved, i.e. while running the post-failover hooks, so
+// that they stop being listed as active. Unlike AcknowledgeCrashedRecoveries it neither acknowledges
+// the recovery nor ends its active period: the failover did take place, so the anti-flapping block
+// stays until RecoveryPeriodBlockSeconds expires or the recovery is acknowledged.
+//
+// Like AcknowledgeCrashedRecoveries, this relies on processing_node_hostname/token, which every raft
+// node sets to its own identity when replaying "write-recovery". So with raft, a crash of the leader
+// running the hooks is not detected here; the recovery stays active until its active period expires.
+func EndCrashedRecoveriesPostProcessing() error {
+	recoveries, err := readRecoveries(`
+		where
+			in_active_period = 1
+			and end_recovery is not null
+			and post_processing_pending = 1
+			and concat(processing_node_hostname, ':', processcing_node_token) not in (
+				select concat(hostname, ':', token) from node_health
+			)`, ``, sqlutils.Args())
+	if err != nil {
+		return log.Errore(err)
+	}
+	for _, topologyRecovery := range recoveries {
+		AuditTopologyRecovery(topologyRecovery, fmt.Sprintf("detected crashed recovery: processing node %s is gone; post-failover hooks may not have completed", topologyRecovery.ProcessingNodeHostname))
+		endRecoveryPostProcessing(topologyRecovery)
+	}
+	return nil
 }
 
 // ResolveRecovery is called on completion of a recovery process and updates the recovery status.
@@ -501,6 +543,37 @@ func writeResolveRecovery(topologyRecovery *TopologyRecovery) error {
 	return log.Errore(err)
 }
 
+// writeEndRecoveryPostProcessing is called once all post-failover hooks and postponed functions of
+// a recovery have finished. Unlike writeResolveRecovery it does not touch the recovery result.
+func writeEndRecoveryPostProcessing(topologyRecovery *TopologyRecovery) error {
+	_, err := db.ExecOrchestrator(`
+			update topology_recovery set
+				post_processing_pending = 0
+			where
+				uid = ?
+			`, topologyRecovery.UID,
+	)
+	return log.Errore(err)
+}
+
+// activeRecoveryCondition selects recoveries that orchestrator is still working on: either the
+// recovery itself has not been resolved yet (end_recovery is null), or it has, but its post-failover
+// hooks are still running (post_processing_pending = 1). Acknowledging a recovery, or the
+// RecoveryPeriodBlockSeconds timeout, clears in_active_period and with it the "active" state.
+// If the processing node dies, AcknowledgeCrashedRecoveries / EndCrashedRecoveriesPostProcessing
+// end the "active" state.
+const activeRecoveryCondition = `in_active_period=1 and (end_recovery is null or post_processing_pending=1)`
+
+// activeRecoveryClusterCondition matches active recoveries of a cluster by its current name. A master
+// failover changes the cluster name to the promoted master's key while the recovery row keeps the
+// old name, so a recovery whose successor is the cluster's master is matched as well. The successor
+// is compared in the cluster name format (InstanceKey.StringCode(), "host:port") rather than by
+// parsing clusterName, which would not round-trip IPv6 hostnames (e.g. "::1:3306").
+func activeRecoveryClusterCondition(clusterName string) (condition string, args []interface{}) {
+	return `(cluster_name=? or concat(successor_hostname, ':', successor_port)=?)`,
+		sqlutils.Args(clusterName, clusterName)
+}
+
 // readRecoveries reads recovery entry/audit entries from topology_recovery
 func readRecoveries(whereCondition string, limit string, args []interface{}) ([]*TopologyRecovery, error) {
 	res := []*TopologyRecovery{}
@@ -514,6 +587,7 @@ func readRecoveries(whereCondition string, limit string, args []interface{}) ([]
       start_active_period,
       IFNULL(end_active_period_unixtime, 0) as end_active_period_unixtime,
       IFNULL(end_recovery, '') AS end_recovery,
+      post_processing_pending,
       is_successful,
       processing_node_hostname,
       processcing_node_token,
@@ -548,6 +622,7 @@ func readRecoveries(whereCondition string, limit string, args []interface{}) ([]
 		topologyRecovery.IsActive = m.GetBool("is_active")
 		topologyRecovery.RecoveryStartTimestamp = m.GetString("start_active_period")
 		topologyRecovery.RecoveryEndTimestamp = m.GetString("end_recovery")
+		topologyRecovery.PostProcessingPending = m.GetBool("post_processing_pending")
 		topologyRecovery.IsSuccessful = m.GetBool("is_successful")
 		topologyRecovery.ProcessingNodeHostname = m.GetString("processing_node_hostname")
 		topologyRecovery.ProcessingNodeToken = m.GetString("processcing_node_token")
@@ -585,15 +660,16 @@ func readRecoveries(whereCondition string, limit string, args []interface{}) ([]
 	return res, log.Errore(err)
 }
 
-// ReadActiveClusterRecovery reads recoveries that are still ongoing.
-// We assume these ones that hasn't finished (end_recovery is null) and are active
+// ReadActiveClusterRecovery reads recoveries of a cluster that are still ongoing, including those
+// whose post-failover hooks are still running (see activeRecoveryCondition). clusterName may be
+// either the cluster's name at the time of the failure or the name it got after the failover.
 func ReadActiveClusterRecovery(clusterName string) ([]*TopologyRecovery, error) {
-	whereClause := `
+	clusterCondition, args := activeRecoveryClusterCondition(clusterName)
+	whereClause := fmt.Sprintf(`
 		where
-			in_active_period=1
-			and end_recovery is null
-			and cluster_name=?`
-	return readRecoveries(whereClause, ``, sqlutils.Args(clusterName))
+			%s
+			and %s`, activeRecoveryCondition, clusterCondition)
+	return readRecoveries(whereClause, ``, args)
 }
 
 // ReadInActivePeriodClusterRecovery reads recoveries (possibly complete!) that are in active period.
@@ -637,12 +713,9 @@ func ReadRecentlyActiveInstanceRecovery(instanceKey *inst.InstanceKey) ([]*Topol
 }
 
 // ReadActiveRecoveries reads active recovery entry/audit entries from topology_recovery
+// (see activeRecoveryCondition)
 func ReadActiveRecoveries() ([]*TopologyRecovery, error) {
-	return readRecoveries(`
-		where
-			in_active_period=1
-			and end_recovery is null`,
-		``, sqlutils.Args())
+	return readRecoveries(fmt.Sprintf(`where %s`, activeRecoveryCondition), ``, sqlutils.Args())
 }
 
 // ReadCompletedRecoveries reads completed recovery entry/audit entries from topology_recovery
@@ -674,10 +747,14 @@ func ReadRecentRecoveries(clusterName string, clusterAlias string, unacknowledge
 		whereConditions = append(whereConditions, `acknowledged=0`)
 	}
 	if activeOnly {
-		// "active" means the recovery function has not yet completed (end_recovery is not set).
-		whereConditions = append(whereConditions, `in_active_period=1 and end_recovery is null`)
+		// "active" means orchestrator is still working on the recovery, post-failover hooks included.
+		whereConditions = append(whereConditions, activeRecoveryCondition)
 	}
-	if clusterName != "" {
+	if clusterName != "" && activeOnly {
+		clusterCondition, clusterArgs := activeRecoveryClusterCondition(clusterName)
+		whereConditions = append(whereConditions, clusterCondition)
+		args = append(args, clusterArgs...)
+	} else if clusterName != "" {
 		whereConditions = append(whereConditions, `cluster_name=?`)
 		args = append(args, clusterName)
 	} else if clusterAlias != "" {
