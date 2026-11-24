@@ -1,0 +1,12 @@
+Replica_IO_Running: Yes
+Source_SSL_Allowed: Yes
+Source_SSL_Verify_Server_Cert: No
+Source_SSL_CA_File: own server setting
+Source_SSL_CA_Path: own server setting
+Source_SSL_Cert: own server setting
+Source_SSL_Key: own server setting
+Source_SSL_Crl: own server setting
+Source_SSL_Crlpath: own server setting
+Source_SSL_Cipher: ''
+Source_TLS_Version: ''
+Source_TLS_Ciphersuites: NULL

@@ -1,0 +1,41 @@
+#!/bin/bash
+#
+# Topology: 10111 -> 10112 -> 10113. Give every sandbox mysqld its own
+# certificate and switch 10113 to TLS replication with
+# SOURCE_SSL_VERIFY_SERVER_CERT=1 and no cipher or TLS version restrictions.
+#
+# Intermediate master 10112 replicates from 10111 with SOURCE_SSL=0, but its
+# channel still holds SOURCE_TLS_VERSION='TLSv1.2' and an empty
+# SOURCE_TLS_CIPHERSUITES (no TLSv1.3 cipher suites), as left behind when TLS
+# was turned off on a channel. 10113 is then made to accept TLSv1.3 only.
+# take-master makes 10112 replicate from 10113 and sets up TLS: the cipher and
+# TLS version restrictions come from 10113's channel (none), and
+# SOURCE_TLS_CIPHERSUITES is reset to NULL. MySQL keeps channel options that a
+# CHANGE REPLICATION SOURCE TO does not mention, so the stale restrictions
+# must be replaced explicitly, or 10112 cannot connect to 10113.
+#
+set -euo pipefail
+test-tls-setup-certs
+test-tls-enable-replica 10113 1
+mysql -uci -pci -h127.0.0.1 --port=10112 -e "
+  STOP REPLICA;
+  CHANGE REPLICATION SOURCE TO
+    SOURCE_SSL = 0,
+    SOURCE_TLS_VERSION = 'TLSv1.2',
+    SOURCE_TLS_CIPHERSUITES = '';
+  START REPLICA;
+"
+for _ in $(seq 1 30); do
+  io=$(mysql -uci -pci -h127.0.0.1 --port=10112 -e "SHOW REPLICA STATUS\G" | sed -n 's/^ *Replica_IO_Running: *//p')
+  [ "$io" = "Yes" ] && break
+  sleep 1
+done
+if [ "$io" != "Yes" ]; then
+  echo "ERROR: replica 10112 IO thread not running with SOURCE_SSL=0 and a stale TLS version" >&2
+  exit 1
+fi
+mysql -uci -pci -h127.0.0.1 --port=10113 -e "
+  SET GLOBAL tls_version = 'TLSv1.3';
+  ALTER INSTANCE RELOAD TLS;
+"
+orchestrator-client -c discover -i 127.0.0.1:10112 >/dev/null

@@ -1,0 +1,37 @@
+#!/bin/bash
+#
+# Topology: 10111 -> 10112 -> 10113. Give every sandbox mysqld its own
+# certificate and switch 10113 to TLS replication with
+# SOURCE_SSL_VERIFY_SERVER_CERT=1.
+#
+# Intermediate master 10112 replicates from 10111 with SOURCE_SSL=0, but its
+# channel still holds a CRL file, a CRL directory and a CA directory that no
+# longer exist, as left behind when TLS was turned off on a channel. 10112's
+# server certificates are valid and complete. take-master makes 10112
+# replicate from 10113 and sets up TLS from 10112's own server TLS
+# configuration, which has no CRL and no CA directory. MySQL keeps channel
+# options that a CHANGE REPLICATION SOURCE TO does not mention, so the stale
+# options must be cleared explicitly, or 10112 cannot connect to 10113.
+#
+set -euo pipefail
+test-tls-setup-certs
+test-tls-enable-replica 10113 1
+mysql -uci -pci -h127.0.0.1 --port=10112 -e "
+  STOP REPLICA;
+  CHANGE REPLICATION SOURCE TO
+    SOURCE_SSL = 0,
+    SOURCE_SSL_CAPATH = '/nonexistent/old-ca-dir',
+    SOURCE_SSL_CRL = '/nonexistent/old-crl.pem',
+    SOURCE_SSL_CRLPATH = '/nonexistent/old-crl-dir';
+  START REPLICA;
+"
+for _ in $(seq 1 30); do
+  io=$(mysql -uci -pci -h127.0.0.1 --port=10112 -e "SHOW REPLICA STATUS\G" | sed -n 's/^ *Replica_IO_Running: *//p')
+  [ "$io" = "Yes" ] && break
+  sleep 1
+done
+if [ "$io" != "Yes" ]; then
+  echo "ERROR: replica 10112 IO thread not running with SOURCE_SSL=0 and a stale CRL" >&2
+  exit 1
+fi
+orchestrator-client -c discover -i 127.0.0.1:10112 >/dev/null

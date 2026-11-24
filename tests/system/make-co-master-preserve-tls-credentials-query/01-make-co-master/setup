@@ -1,0 +1,26 @@
+#!/bin/bash
+#
+# Give every sandbox mysqld its own certificate and switch replica 10113 to TLS
+# replication with SOURCE_SSL_VERIFY_SERVER_CERT=1. Master 10111 has no
+# replication channel, so it has no replication credentials and no replication
+# TLS settings.
+#
+# The run step sets a ReplicationCredentialsQuery (test-with-tls-credentials-query)
+# that returns, besides the replication user and password, 10113's own
+# certificate paths. make-co-master reads credentials from 10113 to seed them on
+# 10111. Only the user and password may be seeded.
+#
+# 10111's ssl_cert and ssl_key are then cleared, so orchestrator does not set
+# SOURCE_SSL_CERT and SOURCE_SSL_KEY on 10111's new channel. MySQL keeps channel
+# options that a CHANGE REPLICATION SOURCE TO does not mention, so if 10113's
+# certificate paths were seeded with the credentials, 10111's channel would
+# keep them. The variables are cleared without ALTER INSTANCE RELOAD TLS, so
+# 10111 keeps serving TLS with the certificate already loaded.
+#
+set -euo pipefail
+test-tls-setup-certs
+test-tls-enable-replica 10113 1
+mysql -uci -pci -h127.0.0.1 --port=10111 -e "
+  SET GLOBAL ssl_cert='';
+  SET GLOBAL ssl_key='';
+"

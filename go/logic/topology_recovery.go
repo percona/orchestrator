@@ -2203,12 +2203,25 @@ func GracefulMasterTakeover(clusterName string, designatedKey *inst.InstanceKey,
 	if topologyRecovery.RecoveryType == MasterRecoveryGTID {
 		gtidHint = inst.GTIDHintForce
 	}
-	clusterMaster, err = inst.ChangeMasterTo(&clusterMaster.Key, &designatedInstance.Key, promotedMasterCoordinates, false, gtidHint)
+	// The demoted master was never a replica, so it has no replication TLS settings to preserve.
+	// designatedInstance was read before promotion, so it still describes its old channel to the
+	// demoted master. It is used as the TLS policy for the demoted master's new channel.
+	// If that channel gets its TLS settings from the policy, only user and password are installed
+	// with the credentials below: TLS fields read on designatedInstance (for example, by
+	// ReplicationCredentialsQuery) would replace the demoted master's own CA, certificate and key.
+	demotedMasterCreds := replicationCreds
+	if replicationCredentialsError == nil {
+		demotedMasterCreds = inst.ReplicationCredentialsForTLSPolicy(replicationCreds, clusterMaster, designatedInstance)
+		if demotedMasterCreds != replicationCreds && (replicationCreds.SSLCaCert != "" || replicationCreds.SSLCert != "" || replicationCreds.SSLKey != "") {
+			log.Infof("GracefulMasterTakeover: not installing TLS settings read from %+v on %+v; its replication TLS settings are built from its own server TLS configuration", designatedInstance.Key, clusterMaster.Key)
+		}
+	}
+	clusterMaster, err = inst.ChangeMasterToWithTLSPolicy(&clusterMaster.Key, &designatedInstance.Key, promotedMasterCoordinates, false, gtidHint, designatedInstance)
 	if !clusterMaster.SelfBinlogCoordinates.Equals(demotedMasterSelfBinlogCoordinates) {
 		log.Errorf("GracefulMasterTakeover: sanity problem. Demoted master's coordinates changed from %+v to %+v while supposed to have been frozen", *demotedMasterSelfBinlogCoordinates, clusterMaster.SelfBinlogCoordinates)
 	}
 	if !clusterMaster.HasReplicationCredentials && replicationCredentialsError == nil {
-		_, credentialsErr := inst.ChangeMasterCredentials(&clusterMaster.Key, replicationCreds)
+		_, credentialsErr := inst.ChangeMasterCredentials(&clusterMaster.Key, demotedMasterCreds)
 		if err == nil {
 			err = credentialsErr
 		}

@@ -841,22 +841,7 @@ func ChangeMasterCredentials(instanceKey *InstanceKey, creds *ReplicationCredent
 		query_params_args = append(query_params_args, creds.Password)
 	}
 
-	// Prefer SSL material supplied via creds over what we read from the replica,
-	// then let appendReplicationChangeTLSFragments emit the full TLS profile
-	// (CA path, cipher, verify-server-cert, TLS version, etc.) so this CHANGE
-	// REPLICATION SOURCE does not drop TLS metadata the replica already had.
-	if creds.SSLCaCert != "" {
-		instance.ReplicationSSLCAFile = creds.SSLCaCert
-		instance.AllowTLS = true
-	}
-	if creds.SSLCert != "" {
-		instance.ReplicationSSLCert = creds.SSLCert
-		instance.AllowTLS = true
-	}
-	if creds.SSLKey != "" {
-		instance.ReplicationSSLKey = creds.SSLKey
-		instance.AllowTLS = true
-	}
+	applyCredentialsTLSProfile(instance, creds)
 	appendReplicationChangeTLSFragments(instance, &query_params, &query_params_args)
 
 	query := fmt.Sprintf(instance.QSP.change_master_to_with_params(), strings.Join(query_params, ", "))
@@ -898,38 +883,30 @@ func EnableMasterGetSourcePublicKey(instanceKey *InstanceKey) (*Instance, error)
 	return instance, err
 }
 
+// appendReplicationChangeTLSFragments appends the instance's replication TLS options to a CHANGE
+// REPLICATION SOURCE TO statement. Normally only options with a value are set, and MySQL keeps the
+// rest. When instance.replicationTLSReplaceAll is set, every TLS option the instance's version
+// supports is set, so that nothing is kept from the channel's earlier configuration: empty paths,
+// cipher and TLS version as empty strings, and SOURCE_TLS_CIPHERSUITES as NULL (MySQL's default; an
+// empty string would allow no TLSv1.3 cipher suites).
 func appendReplicationChangeTLSFragments(instance *Instance, queryParams *[]string, queryArgs *[]interface{}) {
 	q := instance.QSP
 	if instance.AllowTLS {
+		replaceAll := instance.replicationTLSReplaceAll
+		appendOption := func(param string, value string) {
+			if value != "" || replaceAll {
+				*queryParams = append(*queryParams, param)
+				*queryArgs = append(*queryArgs, value)
+			}
+		}
 		*queryParams = append(*queryParams, q.master_ssl()+" = 1")
-		if instance.ReplicationSSLCAFile != "" {
-			*queryParams = append(*queryParams, q.master_ssl_ca_param())
-			*queryArgs = append(*queryArgs, instance.ReplicationSSLCAFile)
-		}
-		if instance.ReplicationSSLCAPath != "" {
-			*queryParams = append(*queryParams, q.master_ssl_capath_param())
-			*queryArgs = append(*queryArgs, instance.ReplicationSSLCAPath)
-		}
-		if instance.ReplicationSSLCert != "" {
-			*queryParams = append(*queryParams, q.master_ssl_cert_param())
-			*queryArgs = append(*queryArgs, instance.ReplicationSSLCert)
-		}
-		if instance.ReplicationSSLCipher != "" {
-			*queryParams = append(*queryParams, q.master_ssl_cipher_param())
-			*queryArgs = append(*queryArgs, instance.ReplicationSSLCipher)
-		}
-		if instance.ReplicationSSLCRLFile != "" {
-			*queryParams = append(*queryParams, q.master_ssl_crl_param())
-			*queryArgs = append(*queryArgs, instance.ReplicationSSLCRLFile)
-		}
-		if instance.ReplicationSSLCRLPath != "" {
-			*queryParams = append(*queryParams, q.master_ssl_crlpath_param())
-			*queryArgs = append(*queryArgs, instance.ReplicationSSLCRLPath)
-		}
-		if instance.ReplicationSSLKey != "" {
-			*queryParams = append(*queryParams, q.master_ssl_key_param())
-			*queryArgs = append(*queryArgs, instance.ReplicationSSLKey)
-		}
+		appendOption(q.master_ssl_ca_param(), instance.ReplicationSSLCAFile)
+		appendOption(q.master_ssl_capath_param(), instance.ReplicationSSLCAPath)
+		appendOption(q.master_ssl_cert_param(), instance.ReplicationSSLCert)
+		appendOption(q.master_ssl_cipher_param(), instance.ReplicationSSLCipher)
+		appendOption(q.master_ssl_crl_param(), instance.ReplicationSSLCRLFile)
+		appendOption(q.master_ssl_crlpath_param(), instance.ReplicationSSLCRLPath)
+		appendOption(q.master_ssl_key_param(), instance.ReplicationSSLKey)
 		if instance.ReplicationSSLVerifyServerCert.Valid {
 			v := 0
 			if instance.ReplicationSSLVerifyServerCert.Bool {
@@ -938,13 +915,16 @@ func appendReplicationChangeTLSFragments(instance *Instance, queryParams *[]stri
 			*queryParams = append(*queryParams, q.master_ssl_verify_server_cert_param())
 			*queryArgs = append(*queryArgs, v)
 		}
-		if instance.ReplicationTLSVersion != "" {
+		if instance.ReplicationTLSVersion != "" || (replaceAll && instance.supportsReplicationTLSVersionOption()) {
 			*queryParams = append(*queryParams, q.master_tls_version_param())
 			*queryArgs = append(*queryArgs, instance.ReplicationTLSVersion)
 		}
 		if instance.ReplicationTLSCiphersuites != "" {
 			*queryParams = append(*queryParams, q.master_tls_ciphersuites_param())
 			*queryArgs = append(*queryArgs, instance.ReplicationTLSCiphersuites)
+		} else if replaceAll && instance.supportsReplicationTLSCiphersuitesOption() {
+			*queryParams = append(*queryParams, q.master_tls_ciphersuites_param())
+			*queryArgs = append(*queryArgs, nil)
 		}
 	}
 	// RSA public-key auth settings (SOURCE_PUBLIC_KEY_PATH / GET_SOURCE_PUBLIC_KEY)
@@ -988,11 +968,175 @@ func workaroundBug83713(instance *Instance, instanceKey *InstanceKey) {
 	}
 }
 
+// resetReplicationTLSOptions clears the instance's replication TLS options, except
+// SOURCE_SSL_VERIFY_SERVER_CERT, and makes appendReplicationChangeTLSFragments set all of them
+// explicitly. It is used when TLS is turned on for a channel that had it off: a channel that exists
+// with SOURCE_SSL=0 still holds the TLS options it was configured with (certificate paths, CRLs,
+// cipher and TLS version restrictions), and MySQL keeps any option that CHANGE REPLICATION SOURCE TO
+// does not mention, so stale options would otherwise become active.
+func resetReplicationTLSOptions(instance *Instance) {
+	instance.ReplicationSSLCAFile = ""
+	instance.ReplicationSSLCAPath = ""
+	instance.ReplicationSSLCert = ""
+	instance.ReplicationSSLKey = ""
+	instance.ReplicationSSLCRLFile = ""
+	instance.ReplicationSSLCRLPath = ""
+	instance.ReplicationSSLCipher = ""
+	instance.ReplicationTLSVersion = ""
+	instance.ReplicationTLSCiphersuites = ""
+	instance.replicationTLSReplaceAll = true
+}
+
+// applyCredentialsTLSProfile applies TLS material from replication credentials (for example from
+// ReplicationCredentialsQuery) to instance. Supplied CA, certificate and key replace what was read
+// from the replica; the rest of its TLS settings are kept. If the credentials turn TLS on for a
+// channel that had it off, the channel's other TLS options are stale and are cleared instead
+// (see resetReplicationTLSOptions); SOURCE_SSL_VERIFY_SERVER_CERT is kept.
+func applyCredentialsTLSProfile(instance *Instance, creds *ReplicationCredentials) {
+	if creds.SSLCaCert == "" && creds.SSLCert == "" && creds.SSLKey == "" {
+		return
+	}
+	if !instance.AllowTLS {
+		resetReplicationTLSOptions(instance)
+		instance.AllowTLS = true
+	}
+	if creds.SSLCaCert != "" {
+		instance.ReplicationSSLCAFile = creds.SSLCaCert
+	}
+	if creds.SSLCert != "" {
+		instance.ReplicationSSLCert = creds.SSLCert
+	}
+	if creds.SSLKey != "" {
+		instance.ReplicationSSLKey = creds.SSLKey
+	}
+}
+
+// tlsPolicyApplies reports whether ChangeMasterToWithTLSPolicy builds instance's replication TLS
+// settings from tlsPolicy: tlsPolicy's channel used TLS and instance has no replication TLS settings
+// of its own.
+func tlsPolicyApplies(instance *Instance, tlsPolicy *Instance) bool {
+	return tlsPolicy != nil && tlsPolicy.AllowTLS && !instance.AllowTLS
+}
+
+// ReplicationCredentialsForTLSPolicy returns the credentials to seed on instance before
+// ChangeMasterToWithTLSPolicy(instance, ..., tlsPolicy) is called. When the policy applies, only
+// user and password are kept. TLS fields in creds describe another host (for example, the replica
+// that ReplicationCredentialsQuery ran on), and ChangeMasterCredentials would install them on
+// instance's channel. Where the channel then reports TLS as enabled, the policy would be skipped,
+// leaving that host's certificate paths and no explicit SOURCE_SSL_VERIFY_SERVER_CERT. Where the
+// channel is not reported yet (MySQL does not show a channel without SOURCE_HOST), the policy
+// applies, but MySQL keeps every option it does not set: with an incomplete server TLS
+// configuration, that host's certificate or key would stay on the channel. When the policy does
+// not apply, creds is returned unchanged.
+func ReplicationCredentialsForTLSPolicy(creds *ReplicationCredentials, instance *Instance, tlsPolicy *Instance) *ReplicationCredentials {
+	if creds == nil || !tlsPolicyApplies(instance, tlsPolicy) {
+		return creds
+	}
+	return &ReplicationCredentials{User: creds.User, Password: creds.Password}
+}
+
+// serverTLSConfiguration is an instance's server TLS configuration: the ssl_* system variables
+// that name certificate material. Unset variables are empty strings.
+type serverTLSConfiguration struct {
+	CA      string // @@ssl_ca
+	CAPath  string // @@ssl_capath
+	Cert    string // @@ssl_cert
+	Key     string // @@ssl_key
+	CRL     string // @@ssl_crl
+	CRLPath string // @@ssl_crlpath
+}
+
+// complete reports whether the configuration names a CA (file or directory), a certificate and a key.
+func (c serverTLSConfiguration) complete() bool {
+	return (c.CA != "" || c.CAPath != "") && c.Cert != "" && c.Key != ""
+}
+
+func (c serverTLSConfiguration) String() string {
+	return fmt.Sprintf("ssl_ca=%q, ssl_capath=%q, ssl_cert=%q, ssl_key=%q, ssl_crl=%q, ssl_crlpath=%q", c.CA, c.CAPath, c.Cert, c.Key, c.CRL, c.CRLPath)
+}
+
+// applyDemotedSourceTLSProfile builds replication TLS settings for an instance that has no
+// replication channel TLS configuration of its own (typically a demoted primary, which was never
+// a replica). Certificate material comes from the instance's own server TLS configuration:
+// SOURCE_SSL_CA, SOURCE_SSL_CAPATH, SOURCE_SSL_CERT, SOURCE_SSL_KEY, SOURCE_SSL_CRL and
+// SOURCE_SSL_CRLPATH from @@ssl_ca, @@ssl_capath, @@ssl_cert, @@ssl_key, @@ssl_crl and
+// @@ssl_crlpath. Client-side restrictions have no server-side equivalent, so they are copied from
+// tlsPolicy, the promoted replica's channel as it was before promotion: SOURCE_SSL_VERIFY_SERVER_CERT,
+// SOURCE_SSL_CIPHER and SOURCE_TLS_VERSION. SHOW REPLICA STATUS does not report
+// SOURCE_TLS_CIPHERSUITES, so it is set to NULL, MySQL's default.
+//
+// All of these options are always set explicitly, empty ones as empty strings (see
+// appendReplicationChangeTLSFragments). MySQL keeps every option that CHANGE REPLICATION SOURCE TO
+// does not mention, and a channel that exists with SOURCE_SSL=0 can still hold old paths and
+// restrictions, which would otherwise become active when TLS is turned on.
+//
+// Returns true when TLS settings were applied. Nothing is changed when tlsPolicy is nil, when
+// tlsPolicy's channel did not use TLS, or when the instance already has TLS settings to preserve.
+func applyDemotedSourceTLSProfile(instance *Instance, tlsPolicy *Instance, server serverTLSConfiguration) bool {
+	if !tlsPolicyApplies(instance, tlsPolicy) {
+		return false
+	}
+	resetReplicationTLSOptions(instance)
+	instance.AllowTLS = true
+	instance.ReplicationSSLCAFile = server.CA
+	instance.ReplicationSSLCAPath = server.CAPath
+	instance.ReplicationSSLCert = server.Cert
+	instance.ReplicationSSLKey = server.Key
+	instance.ReplicationSSLCRLFile = server.CRL
+	instance.ReplicationSSLCRLPath = server.CRLPath
+	instance.ReplicationSSLCipher = tlsPolicy.ReplicationSSLCipher
+	instance.ReplicationTLSVersion = tlsPolicy.ReplicationTLSVersion
+	instance.ReplicationSSLVerifyServerCert = sql.NullBool{
+		Valid: true,
+		Bool:  tlsPolicy.ReplicationSSLVerifyServerCert.Valid && tlsPolicy.ReplicationSSLVerifyServerCert.Bool,
+	}
+	return true
+}
+
+// readServerTLSConfiguration reads the server TLS configuration of the given instance.
+func readServerTLSConfiguration(instanceKey *InstanceKey) (server serverTLSConfiguration, err error) {
+	query := `
+		select
+			ifnull(@@global.ssl_ca, '') as ssl_ca,
+			ifnull(@@global.ssl_capath, '') as ssl_capath,
+			ifnull(@@global.ssl_cert, '') as ssl_cert,
+			ifnull(@@global.ssl_key, '') as ssl_key,
+			ifnull(@@global.ssl_crl, '') as ssl_crl,
+			ifnull(@@global.ssl_crlpath, '') as ssl_crlpath
+	`
+	err = ScanInstanceRow(instanceKey, query, &server.CA, &server.CAPath, &server.Cert, &server.Key, &server.CRL, &server.CRLPath)
+	return server, err
+}
+
 // ChangeMasterTo changes the given instance's master according to given input.
 func ChangeMasterTo(instanceKey *InstanceKey, masterKey *InstanceKey, masterBinlogCoordinates *BinlogCoordinates, skipUnresolve bool, gtidHint OperationGTIDHint) (*Instance, error) {
+	return ChangeMasterToWithTLSPolicy(instanceKey, masterKey, masterBinlogCoordinates, skipUnresolve, gtidHint, nil)
+}
+
+// ChangeMasterToWithTLSPolicy is ChangeMasterTo for an instance that may have no replication TLS
+// settings of its own, such as a primary demoted in a graceful takeover, take-master or
+// make-co-master. tlsPolicy is the replica that becomes the instance's new source, as read before
+// the operation, so that it still describes its channel to the instance. If tlsPolicy's channel used TLS and the instance
+// has no replication TLS settings, the instance's channel is set up with TLS: certificates come from
+// the instance's own server TLS configuration, and SOURCE_SSL_VERIFY_SERVER_CERT from tlsPolicy.
+// If the server TLS configuration cannot be read, a warning is logged and the channel is set up
+// without TLS, as ChangeMasterTo would. A nil tlsPolicy behaves exactly like ChangeMasterTo.
+func ChangeMasterToWithTLSPolicy(instanceKey *InstanceKey, masterKey *InstanceKey, masterBinlogCoordinates *BinlogCoordinates, skipUnresolve bool, gtidHint OperationGTIDHint, tlsPolicy *Instance) (*Instance, error) {
 	instance, err := ReadTopologyInstance(instanceKey)
 	if err != nil {
 		return instance, log.Errore(err)
+	}
+
+	if tlsPolicyApplies(instance, tlsPolicy) {
+		if server, tlsErr := readServerTLSConfiguration(instanceKey); tlsErr != nil {
+			log.Warningf("ChangeMasterTo: %+v has no replication TLS settings and its server TLS configuration could not be read; replication will be set up without TLS: %+v", *instanceKey, tlsErr)
+		} else {
+			applyDemotedSourceTLSProfile(instance, tlsPolicy, server)
+			if !server.complete() {
+				log.Warningf("ChangeMasterTo: %+v: server TLS configuration is incomplete (%s); replication will use TLS with the available settings only", *instanceKey, server)
+			}
+			log.Infof("ChangeMasterTo: %+v has no replication TLS settings; using its server TLS configuration (%s) and source_ssl_verify_server_cert=%t, source_ssl_cipher=%q, source_tls_version=%q taken from %+v", *instanceKey, server, instance.ReplicationSSLVerifyServerCert.Bool, instance.ReplicationSSLCipher, instance.ReplicationTLSVersion, tlsPolicy.Key)
+		}
 	}
 
 	if instance.ReplicationThreadsExist() && !instance.ReplicationThreadsStopped() {

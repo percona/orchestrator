@@ -139,6 +139,10 @@ type Instance struct {
 	ReplicationTLSCiphersuites     string
 	ReplicationSourcePublicKeyPath string
 	ReplicationGetSourcePublicKey  sql.NullBool
+	// replicationTLSReplaceAll makes appendReplicationChangeTLSFragments set every replication TLS
+	// option, including empty ones, so that none is kept from the channel's earlier configuration.
+	// Set by resetReplicationTLSOptions when TLS is turned on for a channel that had it off.
+	replicationTLSReplaceAll bool
 
 	Problems []string
 
@@ -244,6 +248,19 @@ func (this *Instance) IsSmallerMajorVersion(other *Instance) bool {
 // IsSmallerMajorVersionByString checks if this instance has a smaller major version number than given one
 func (this *Instance) IsSmallerMajorVersionByString(otherVersion string) bool {
 	return IsSmallerMajorVersion(this.Version, otherVersion)
+}
+
+// supportsReplicationTLSVersionOption reports whether CHANGE REPLICATION SOURCE TO accepts
+// SOURCE_TLS_VERSION (MASTER_TLS_VERSION) on this instance: MySQL 5.7.10 and later, not MariaDB.
+func (this *Instance) supportsReplicationTLSVersionOption() bool {
+	return !this.IsMariaDB() && versionAtLeast(this.Version, "5.7.10")
+}
+
+// supportsReplicationTLSCiphersuitesOption reports whether CHANGE REPLICATION SOURCE TO accepts
+// SOURCE_TLS_CIPHERSUITES (MASTER_TLS_CIPHERSUITES) on this instance: MySQL 8.0.19 and later, not
+// MariaDB.
+func (this *Instance) supportsReplicationTLSCiphersuitesOption() bool {
+	return !this.IsMariaDB() && versionAtLeast(this.Version, "8.0.19")
 }
 
 // IsMariaDB checks whether this is any version of MariaDB

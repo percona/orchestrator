@@ -1,0 +1,12 @@
+#!/bin/bash
+#
+# Give every sandbox mysqld its own certificate, then switch replicas 10112,
+# 10113 and 10114 to TLS replication with SOURCE_SSL_VERIFY_SERVER_CERT=1.
+# Master 10111 has no replication channel, so it has no replication TLS
+# settings that orchestrator could preserve.
+#
+set -euo pipefail
+test-tls-setup-certs
+for port in 10112 10113 10114; do
+  test-tls-enable-replica $port 1
+done
