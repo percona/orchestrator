@@ -3468,15 +3468,14 @@ func PopulateGroupReplicationInformation(instance *Instance, db *sql.DB) error {
 	`
 	rows, err := db.Query(q)
 	if err != nil {
-		_, grNotSupported := GroupReplicationNotSupportedErrors[err.(*mysql.MySQLError).Number]
-		if grNotSupported {
-			return nil // If GR is not supported by the instance, just exit
-		} else {
-			// If we got here, the query failed but not because the server does not support group replication. Let's
-			// log the error
-			return log.Errorf("There was an error trying to check group replication information for instance "+
-				"%+v: %+v", instance.Key, err)
+		var mysqlErr *mysql.MySQLError
+		if errors.As(err, &mysqlErr) {
+			if _, ok := GroupReplicationNotSupportedErrors[mysqlErr.Number]; ok {
+				return nil // If GR is not supported by the instance, just exit
+			}
 		}
+		return log.Errorf("There was an error trying to check group replication information for instance "+
+			"%+v: %+v", instance.Key, err)
 	}
 	defer rows.Close()
 	foundGroupPrimary := false
