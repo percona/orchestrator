@@ -238,6 +238,42 @@ func IsSmallerMajorVersion(version string, otherVersion string) bool {
 	return false
 }
 
+// versionAtLeast reports whether version (for example "8.0.36-28") is at least minVersion (for
+// example "8.0.19"), comparing the numeric major, minor and patch components. An empty or
+// unparseable version is not at least any version.
+func versionAtLeast(version string, minVersion string) bool {
+	parse := func(v string) ([3]int, bool) {
+		var parsed [3]int
+		tokens := strings.SplitN(v, ".", 3)
+		if len(tokens) < 2 {
+			return parsed, false
+		}
+		for i, token := range tokens {
+			digits := token
+			if end := strings.IndexFunc(token, func(r rune) bool { return r < '0' || r > '9' }); end >= 0 {
+				digits = token[:end]
+			}
+			n, err := strconv.Atoi(digits)
+			if err != nil {
+				return parsed, false
+			}
+			parsed[i] = n
+		}
+		return parsed, true
+	}
+	have, ok := parse(version)
+	if !ok {
+		return false
+	}
+	want, _ := parse(minVersion)
+	for i := range have {
+		if have[i] != want[i] {
+			return have[i] > want[i]
+		}
+	}
+	return true
+}
+
 // IsSmallerBinlogFormat tests two binlog formats and sees if one is "smaller" than the other.
 // "smaller" binlog format means you can replicate from the smaller to the larger.
 func IsSmallerBinlogFormat(binlogFormat string, otherBinlogFormat string) bool {

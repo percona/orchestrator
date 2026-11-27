@@ -1,0 +1,7 @@
+#!/bin/bash
+#
+# Turn off SOURCE_SSL_VERIFY_SERVER_CERT on 10111, which is promoted next.
+# The demoted 10112 must copy this value (No), not its own old channel's (Yes).
+#
+set -euo pipefail
+test-tls-enable-replica 10111 0

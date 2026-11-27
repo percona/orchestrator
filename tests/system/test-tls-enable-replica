@@ -1,0 +1,37 @@
+#!/bin/bash
+#
+# Usage: test-tls-enable-replica <port> <verify_server_cert: 0|1>
+#
+# Switches the replica on <port> to TLS replication (SOURCE_SSL=1, SOURCE_SSL_CA
+# set to the replica's own @@ssl_ca, as set up by test-tls-setup-certs) with the
+# given SOURCE_SSL_VERIFY_SERVER_CERT, waits for its IO thread to connect and
+# has orchestrator rediscover it.
+#
+set -euo pipefail
+
+port="$1"
+verify="$2"
+MYSQL=(mysql -uci -pci -h127.0.0.1 --port="$port")
+
+ca=$("${MYSQL[@]}" -sN -e "SELECT @@global.ssl_ca")
+"${MYSQL[@]}" -e "
+  STOP REPLICA;
+  CHANGE REPLICATION SOURCE TO
+    SOURCE_SSL=1,
+    SOURCE_SSL_CA='${ca}',
+    SOURCE_SSL_VERIFY_SERVER_CERT=${verify};
+  START REPLICA;
+"
+
+io_running=""
+for _ in $(seq 1 60); do
+  io_running=$("${MYSQL[@]}" -e "SHOW REPLICA STATUS\G" | tr -d '\r' | sed -n 's/^ *Replica_IO_Running: *//p' | head -1)
+  [ "$io_running" = "Yes" ] && break
+  sleep 1
+done
+if [ "$io_running" != "Yes" ]; then
+  echo "ERROR: replica $port IO thread not running after enabling TLS"
+  "${MYSQL[@]}" -e "SHOW REPLICA STATUS\G" | head -60
+  exit 1
+fi
+orchestrator-client -c discover -i 127.0.0.1:$port | grep -q .

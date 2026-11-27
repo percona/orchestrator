@@ -1,0 +1,18 @@
+#!/bin/bash
+#
+# Give every sandbox mysqld its own certificate, then switch replicas 10112,
+# 10113 and 10114 to TLS replication with SOURCE_SSL_VERIFY_SERVER_CERT=1.
+# Master 10111 has no replication channel, so it has no replication
+# credentials and no replication TLS settings.
+#
+# The run step sets a ReplicationCredentialsQuery (test-with-tls-credentials-query)
+# that returns, besides the replication user and password, 10112's own
+# certificate paths. The takeover reads credentials on 10112 and installs them
+# on the demoted 10111. Only the user and password may be installed: 10111 must
+# keep its own CA, certificate and key on its new channel.
+#
+set -euo pipefail
+test-tls-setup-certs
+for port in 10112 10113 10114; do
+  test-tls-enable-replica $port 1
+done

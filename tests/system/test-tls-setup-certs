@@ -1,0 +1,46 @@
+#!/bin/bash
+#
+# Usage: test-tls-setup-certs
+#
+# Gives every sandbox mysqld (10111-10114) its own CA-signed certificate, at a
+# different path per host, and loads it with SET PERSIST ssl_ca/ssl_cert/ssl_key
+# and ALTER INSTANCE RELOAD TLS. Replication channels are not changed.
+#
+# Each certificate allows both serverAuth and clientAuth: when orchestrator
+# turns a host that had no replication TLS settings (a master) into a replica,
+# the host presents its server certificate as a replication client certificate.
+#
+set -euo pipefail
+
+TLS_DIR=$(mktemp -d /tmp/orch_ci_tls_XXXXXX)
+chmod 711 "$TLS_DIR"
+
+openssl genrsa -out "$TLS_DIR/ca-key.pem" 2048 >/dev/null 2>&1
+openssl req -x509 -new -nodes -key "$TLS_DIR/ca-key.pem" -sha256 -days 1 \
+  -out "$TLS_DIR/ca.pem" -subj "/CN=orch-ci-tls-ca" >/dev/null 2>&1
+
+cat > "$TLS_DIR/server_ext.cnf" <<'EXT'
+subjectAltName=IP:127.0.0.1,DNS:localhost
+extendedKeyUsage=serverAuth,clientAuth
+keyUsage=digitalSignature,keyEncipherment
+EXT
+
+for port in 10111 10112 10113 10114; do
+  openssl genrsa -out "$TLS_DIR/server-$port-key.pem" 2048 >/dev/null 2>&1
+  openssl req -new -key "$TLS_DIR/server-$port-key.pem" -out "$TLS_DIR/server-$port.csr" \
+    -subj "/CN=127.0.0.1" >/dev/null 2>&1
+  openssl x509 -req -in "$TLS_DIR/server-$port.csr" \
+    -CA "$TLS_DIR/ca.pem" -CAkey "$TLS_DIR/ca-key.pem" -CAcreateserial \
+    -out "$TLS_DIR/server-$port.pem" -days 1 -sha256 \
+    -extfile "$TLS_DIR/server_ext.cnf" >/dev/null 2>&1
+done
+chmod a+rX "$TLS_DIR"/*.pem
+
+for port in 10111 10112 10113 10114; do
+  mysql -uci -pci -h127.0.0.1 --port="$port" -e "
+    SET PERSIST ssl_ca='${TLS_DIR}/ca.pem';
+    SET PERSIST ssl_cert='${TLS_DIR}/server-$port.pem';
+    SET PERSIST ssl_key='${TLS_DIR}/server-$port-key.pem';
+    ALTER INSTANCE RELOAD TLS;
+  "
+done

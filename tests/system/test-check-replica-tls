@@ -1,0 +1,60 @@
+#!/bin/bash
+#
+# Usage: test-check-replica-tls <port>
+#
+# Waits for the replica on <port> to connect, then prints its replication TLS
+# settings. Certificate paths are compared with the replica's own server TLS
+# configuration (@@ssl_ca, @@ssl_capath, @@ssl_cert, @@ssl_key, @@ssl_crl,
+# @@ssl_crlpath), so the output does not depend on the temporary certificate
+# directory. Cipher and TLS version restrictions are printed as they are;
+# SOURCE_TLS_CIPHERSUITES is not in SHOW REPLICA STATUS and is read from
+# performance_schema.
+#
+set -euo pipefail
+
+port="$1"
+MYSQL=(mysql -uci -pci -h127.0.0.1 --port="$port")
+
+field() {
+  echo "$status" | tr -d '\r' | sed -n "s/^ *$1: *//p" | head -1
+}
+
+io_running=""
+for _ in $(seq 1 60); do
+  status=$("${MYSQL[@]}" -e "SHOW REPLICA STATUS\G")
+  io_running=$(field Replica_IO_Running)
+  [ "$io_running" = "Yes" ] && break
+  sleep 1
+done
+
+# '|' is not whitespace, so empty variables keep their position.
+IFS='|' read -r own_ca own_capath own_cert own_key own_crl own_crlpath < <("${MYSQL[@]}" -sN -e "
+  SELECT CONCAT_WS('|', IFNULL(@@global.ssl_ca, ''), IFNULL(@@global.ssl_capath, ''),
+    IFNULL(@@global.ssl_cert, ''), IFNULL(@@global.ssl_key, ''),
+    IFNULL(@@global.ssl_crl, ''), IFNULL(@@global.ssl_crlpath, ''))")
+
+compare() {
+  if [ "$2" = "$3" ]; then
+    echo "$1: own server setting"
+  else
+    echo "$1: '$2' (server setting: '$3')"
+  fi
+}
+
+echo "Replica_IO_Running: $io_running"
+echo "Source_SSL_Allowed: $(field Source_SSL_Allowed)"
+echo "Source_SSL_Verify_Server_Cert: $(field Source_SSL_Verify_Server_Cert)"
+compare Source_SSL_CA_File "$(field Source_SSL_CA_File)" "$own_ca"
+compare Source_SSL_CA_Path "$(field Source_SSL_CA_Path)" "$own_capath"
+compare Source_SSL_Cert "$(field Source_SSL_Cert)" "$own_cert"
+compare Source_SSL_Key "$(field Source_SSL_Key)" "$own_key"
+compare Source_SSL_Crl "$(field Source_SSL_Crl)" "$own_crl"
+compare Source_SSL_Crlpath "$(field Source_SSL_Crlpath)" "$own_crlpath"
+echo "Source_SSL_Cipher: '$(field Source_SSL_Cipher)'"
+echo "Source_TLS_Version: '$(field Source_TLS_Version)'"
+echo "Source_TLS_Ciphersuites: $("${MYSQL[@]}" -sN -e "
+  SELECT IFNULL(CONCAT('''', TLS_CIPHERSUITES, ''''), 'NULL')
+  FROM performance_schema.replication_connection_configuration WHERE CHANNEL_NAME = ''")"
+if [ "$io_running" != "Yes" ]; then
+  echo "Last_IO_Error: $(field Last_IO_Error)"
+fi

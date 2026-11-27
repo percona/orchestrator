@@ -1,0 +1,11 @@
+#!/bin/bash
+#
+# Topology: 10111 -> 10112 -> 10113. Give every sandbox mysqld its own
+# certificate and switch 10113 to TLS replication with
+# SOURCE_SSL_VERIFY_SERVER_CERT=1. Intermediate master 10112 replicates from
+# 10111 without TLS, so it has no replication TLS settings that orchestrator
+# could preserve when it makes 10112 replicate from 10113.
+#
+set -euo pipefail
+test-tls-setup-certs
+test-tls-enable-replica 10113 1

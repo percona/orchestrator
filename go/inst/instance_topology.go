@@ -1024,6 +1024,15 @@ func MakeCoMaster(instanceKey *InstanceKey) (*Instance, error) {
 		// Let's try , if possible, to get credentials from replica. Best effort.
 		if credentials, credentialsErr := ReadReplicationCredentials(&instance.Key); credentialsErr == nil {
 			log.Debugf("Got credentials from a replica. will now apply")
+			// If master's new channel is going to get TLS settings from instance's channel (see
+			// ChangeMasterToWithTLSPolicy below), seed only user and password: TLS fields read from the
+			// replica would otherwise take precedence and leave master with the replica's certificates.
+			if seeded := ReplicationCredentialsForTLSPolicy(credentials, master, instance); seeded != credentials {
+				if credentials.SSLCaCert != "" || credentials.SSLCert != "" || credentials.SSLKey != "" {
+					log.Infof("MakeCoMaster: not seeding TLS settings read from %+v on %+v; its replication TLS settings will be built from its own server TLS configuration", instance.Key, master.Key)
+				}
+				credentials = seeded
+			}
 			_, err = ChangeMasterCredentials(&master.Key, credentials)
 			if err != nil {
 				goto Cleanup
@@ -1041,7 +1050,9 @@ func MakeCoMaster(instanceKey *InstanceKey) (*Instance, error) {
 	if instance.UsingOracleGTID {
 		gitHint = GTIDHintForce
 	}
-	master, err = ChangeMasterTo(&master.Key, instanceKey, &instance.SelfBinlogCoordinates, false, gitHint)
+	// A plain master has no replication TLS settings to preserve. instance's channel to master is used
+	// as the TLS policy for master's new channel to instance.
+	master, err = ChangeMasterToWithTLSPolicy(&master.Key, instanceKey, &instance.SelfBinlogCoordinates, false, gitHint, instance)
 	if err != nil {
 		goto Cleanup
 	}
@@ -1776,6 +1787,9 @@ func TakeMaster(instanceKey *InstanceKey, allowTakingCoMaster bool) (*Instance, 
 	if instance.IsReplicationGroupSecondary() {
 		return instance, fmt.Errorf("takeMaster: %+v is a secondary replication group member, hence, it cannot be relocated", instance.Key)
 	}
+	// instance as it is now, replicating from masterInstance. Its channel is the TLS policy for
+	// masterInstance's new channel to instance.
+	tlsPolicy := instance
 	masterInstance, found, err := ReadInstance(&instance.MasterKey)
 	if err != nil || !found {
 		return instance, err
@@ -1813,7 +1827,7 @@ func TakeMaster(instanceKey *InstanceKey, allowTakingCoMaster bool) (*Instance, 
 		goto Cleanup
 	}
 	// instance is now sibling of master
-	masterInstance, err = ChangeMasterTo(&masterInstance.Key, &instance.Key, &instance.SelfBinlogCoordinates, false, GTIDHintNeutral)
+	masterInstance, err = ChangeMasterToWithTLSPolicy(&masterInstance.Key, &instance.Key, &instance.SelfBinlogCoordinates, false, GTIDHintNeutral, tlsPolicy)
 	if err != nil {
 		goto Cleanup
 	}
